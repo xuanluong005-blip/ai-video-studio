@@ -1,12 +1,14 @@
 import streamlit as st
 import os
 import io
+import time
 import asyncio
 import tempfile
 import urllib.parse
 import requests
 import numpy as np
 from google import genai
+from google.genai import types
 from moviepy import (
     ImageClip, 
     AudioFileClip, 
@@ -25,9 +27,30 @@ except Exception:
 
 st.set_page_config(page_title="AI Studio Ultimate", page_icon="✨", layout="centered")
 
-# ==========================================================
-# ẢNH ĐẠI DIỆN VÀ BANNER CHỨC NĂNG SỐNG ĐỘNG (HD)
-# ==========================================================
+# Hàm gọi Gemini với cơ chế tự động thử lại và đổi mô hình dự phòng
+def generate_content_with_fallback(client, contents, primary_model="gemini-2.5-flash"):
+    candidate_models = [
+        primary_model,
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-pro"
+    ]
+    
+    last_err = None
+    for model_name in candidate_models:
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents
+                )
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                last_err = e
+                time.sleep(1.5)
+    raise last_err
+
 BANNER_URLS = {
     "HERO": "https://image.pollinations.ai/prompt/Futuristic%20creative%20AI%20video%20and%20music%20production%20studio,%20glowing%20neon%20holograms,%20Super%20Saiyan%20energy%20and%20dancing%20characters,%20ultra%20vibrant%203D%20cinematic%20digital%20art,%208k%20masterpiece?width=1200&height=400&model=flux&seed=777&nologo=true",
     "TRANSFORM": "https://image.pollinations.ai/prompt/Epic%20character%20transformation,%20split%20view%20between%20Super%20Saiyan%20golden%20hair%20and%20giant%20muscular%20hero,%20energetic%20lighting%20sparks,%20cinematic%203D%20render,%208k?width=1080&height=350&model=flux&seed=888&nologo=true",
@@ -36,12 +59,10 @@ BANNER_URLS = {
     "MUSIC": "https://image.pollinations.ai/prompt/Neon%20glowing%20music%20studio,%20floating%20musical%20notes,%20soundwaves,%20headphones,%20cyberpunk%20aesthetic,%20ultra%20detailed%203D?width=1080&height=350&model=flux&seed=333&nologo=true"
 }
 
-# 1. Hiển thị Banner mở đầu
 st.image(BANNER_URLS["HERO"], use_container_width=True)
 st.title("✨ AI Studio Ultimate")
 st.caption("Nền tảng sáng tạo đa phương tiện: Video TikTok • Biến Hình AI • Nhảy Meme • Sáng Tác Nhạc")
 
-# 2. Tự động kết nối Key
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
     api_key = saved_api_key
@@ -49,7 +70,6 @@ if saved_api_key:
 else:
     api_key = st.text_input("🔑 Gemini API Key (*):", type="password", placeholder="Nhập Gemini API Key của bạn...")
 
-# 3. Menu chọn chức năng
 st.markdown("### 🎯 Chọn Chức Năng Bạn Muốn Dùng:")
 feature_choice = st.radio(
     "Danh sách tính năng:",
@@ -66,15 +86,15 @@ feature_choice = st.radio(
 st.markdown("---")
 
 # ==========================================================
-# 1. VŨ TRỤ BIẾN HÌNH AI ĐA DẠNG
+# 1. VŨ TRỤ BIẾN HÌNH AI
 # ==========================================================
 if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)":
-    st.image(BANNER_URLS["TRANSFORM"], caption="⚡ Vũ Trụ Biến Hình AI: Phình To, Saiyan, Anime, Em Bé...", use_container_width=True)
-    st.subheader("🎭 Vũ Trụ Biến Hình AI")
-    st.caption("Tải 1 ảnh chân dung và chọn phong cách biến hình yêu thích!")
+    st.image(BANNER_URLS["TRANSFORM"], caption="⚡ Vũ Trụ Biến Hình AI: Giữ Nguyên Gương Mặt Thật", use_container_width=True)
+    st.subheader("🎭 Vũ Trụ Biến Hình AI (Khóa Nét Mặt Gốc)")
+    st.caption("Tải ảnh chân dung rõ mặt, AI sẽ phân tích và giữ nét mặt của bạn khi biến hình!")
 
     trans_img_file = st.file_uploader(
-        "📸 Tải lên ảnh chân dung hoặc toàn thân của bạn:", 
+        "📸 Tải lên ảnh chân dung cận mặt của bạn:", 
         type=["jpg", "jpeg", "png", "heic", "webp"], 
         key="trans_uploader"
     )
@@ -106,59 +126,65 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
             ]
         )
 
-    if st.button("✨ BIẾN HÌNH NGAY", use_container_width=True, key="btn_execute_trans"):
+    if st.button("✨ BIẾN HÌNH GIỮ GƯƠNG MẶT NGAY", use_container_width=True, key="btn_execute_trans"):
         if not api_key:
             st.error("⚠️ Vui lòng đảm bảo đã kết nối Gemini API Key!")
         elif not trans_img_file:
-            st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung!")
+            st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung rõ mặt!")
         else:
-            status = st.status("🔮 Đang kích hoạt hiệu ứng biến hình...", expanded=True)
+            status = st.status("🔮 Đang quét và khóa nét gương mặt thật...", expanded=True)
             try:
                 client = genai.Client(api_key=api_key)
-                status.write("👁️ Gemini đang phân tích khuôn mặt và đặc điểm ảnh gốc...")
                 user_image = Image.open(trans_img_file).convert("RGB")
                 
                 img_byte_arr = io.BytesIO()
                 user_image.save(img_byte_arr, format='JPEG', quality=85)
                 img_bytes = img_byte_arr.getvalue()
 
-                analysis_prompt = "Describe this person concisely in 25 words: gender, facial features, hair, eye shape, posture."
-                
-                from google.genai import types
-                analysis_res = client.models.generate_content(
-                    model="gemini-3.6-flash",
-                    contents=[
-                        types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
-                        analysis_prompt
-                    ]
+                status.write("👁️ Đang trích xuất tỉ lệ khuôn mặt, mắt, mũi, cằm...")
+                analysis_prompt = (
+                    "Look closely at the person in this image. Write a detailed description focusing ONLY on their "
+                    "facial identity: exact ethnicity, face shape, jawline, eye shape, nose structure, lips, skin tone, "
+                    "and current facial expression. Format as a concise description under 30 words."
                 )
-                person_desc = analysis_res.text.strip().replace("\n", " ")
+                
+                contents_payload = [
+                    types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
+                    analysis_prompt
+                ]
+                
+                person_desc_text = generate_content_with_fallback(client, contents_payload)
+                person_desc = person_desc_text.strip().replace("\n", " ")
 
-                status.write("🎨 Đang vẽ ảnh theo hiệu ứng bạn chọn...")
+                status.write("🎨 Đang kết hợp gương mặt gốc với hiệu ứng biến hình...")
 
                 effect_prompt_map = {
-                    "💪 Phình To Cơ Bắp (Lực Sĩ Thể Hình Khổng Lồ)": "extremely muscular bodybuilder transformation, massive bulging biceps and shoulders, hyper defined veins, heroic power pose, flexing muscles",
-                    "🎈 Phình To Tròn Bụng (Mập Mạp Meme Đáng Yêu)": "funny chubby transformation, round puffy chubby cheeks, oversized cute belly, hilarious exaggerated round proportions",
-                    "⚡ Siêu Saiyan Son Goku (Tóc Vàng Rực Lửa)": "Super Saiyan Goku from Dragon Ball with glowing spiky yellow hair, intense golden aura, teal eyes, iconic orange and navy gi",
-                    "🌌 Son Goku Bản Năng Vô Cực (Tóc Bạc)": "Mastered Ultra Instinct Goku, glowing silver-white spiky hair, silver eyes, celestial cosmic galaxy aura, torn martial arts uniform",
-                    "🧒 Biến Về Em Bé 5 Tuổi (Baby Face)": "turned into an adorable 5-year-old toddler, cute big sparkling eyes, chubby soft baby cheeks, youthful innocence",
-                    "👴 Du Hành Tương Lai 80 Tuổi (Lão Hóa Tóc Bạc)": "aged to 80 years old, realistic facial wrinkles, wise elderly expression, distinguished silver gray hair and beard",
-                    "🥷 Ninja Hokage (Làng Lá Naruto)": "Konoha ninja Hokage warrior from Naruto, wearing iconic Hokage cloak and headband, dramatic ninja battle stance",
-                    "🦾 Người Máy Chiến Binh (Cyberpunk Cyborg)": "futuristic cyberpunk cyborg, half metallic chrome cybernetic face, glowing neon blue robotic optic eye, carbon fiber mechanical armor",
-                    "👑 Tổng Tài Quyền Lực (Vest Tuxedo Doanh Nhân)": "ultra-wealthy billionaire CEO, wearing luxury black tailored Italian tuxedo, lavish penthouse luxury background"
+                    "💪 Phình To Cơ Bắp (Lực Sĩ Thể Hình Khổng Lồ)": "transformed body with massive shredded bodybuilder muscles, giant vascular biceps and traps, keeping the exact same facial identity, heroic power pose",
+                    "🎈 Phình To Tròn Bụng (Mập Mạp Meme Đáng Yêu)": "funny chubby exaggerated round body with cute puffy cheeks, keeping the identical face features, hilarious cartoonish proportions",
+                    "⚡ Siêu Saiyan Son Goku (Tóc Vàng Rực Lửa)": "exact same face features and face shape of the person, transformed into Super Saiyan with glowing spiky yellow hair, intense golden aura, teal eyes, orange martial arts gi",
+                    "🌌 Son Goku Bản Năng Vô Cực (Tóc Bạc)": "exact same face features of the person, with Mastered Ultra Instinct silver spiky hair, silver eyes, divine celestial galaxy aura, battle-torn gi",
+                    "🧒 Biến Về Em Bé 5 Tuổi (Baby Face)": "young toddler version keeping the identical eyes and facial features of this person, cute baby cheeks, youthful innocence",
+                    "👴 Du Hành Tương Lai 80 Tuổi (Lão Hóa Tóc Bạc)": "elderly aged version preserving the person's exact bone structure and eyes, realistic skin aging, silver white hair and beard",
+                    "🥷 Ninja Hokage (Làng Lá Naruto)": "exact same person wearing Konoha Hokage cloak and forehead protector, dramatic ninja battle stance, maintaining original face identity",
+                    "🦾 Người Máy Chiến Binh (Cyberpunk Cyborg)": "exact same face of the person with half metallic cybernetic implants, glowing neon blue optic eye, high-tech carbon fiber armor",
+                    "👑 Tổng Tài Quyền Lực (Vest Tuxedo Doanh Nhân)": "exact same person dressed in luxury black bespoke Italian tuxedo, billionaire CEO aesthetic, lavish penthouse background"
                 }
 
                 style_prompt_map = {
-                    "Điện Ảnh Thực Tế (Photorealistic / 3D Live-Action)": "cinematic 8k movie still, photorealistic, intricate textures, realistic lighting, unreal engine 5",
-                    "Anime Nhật Bản Sắc Nét (Anime Art Style)": "vibrant Japanese anime masterpiece, sharp cel shading, dynamic anime line art, studio trigger aesthetic",
-                    "Tranh Sơn Dầu Nghệ Thuật (Classic Oil Painting)": "classic museum oil painting, visible canvas texture, dramatic chiaroscuro lighting, rich palette",
-                    "Manga Đen Trắng Đậm Chất (Comic Book Style)": "high-contrast Japanese manga drawing, dynamic speed lines, screentone shading, sharp ink lineart"
+                    "Điện Ảnh Thực Tế (Photorealistic / 3D Live-Action)": "photorealistic portrait, 8k movie still, maintaining original person's face identity, highly detailed skin texture, cinematic lighting",
+                    "Anime Nhật Bản Sắc Nét (Anime Art Style)": "anime character illustration keeping the distinct facial features of the original person, vibrant studio art style, sharp cel shading",
+                    "Tranh Sơn Dầu Nghệ Thuật (Classic Oil Painting)": "classic museum oil portrait preserving facial likeness, rich brushwork, chiaroscuro lighting",
+                    "Manga Đen Trắng Đậm Chất (Comic Book Style)": "high-contrast manga drawing capturing the person's exact likeness, screentone shading, dynamic lineart"
                 }
 
                 chosen_effect = effect_prompt_map[transform_mode]
                 chosen_style = style_prompt_map[art_style]
 
-                prompt_draw = f"Full transformation portrait of {person_desc}. Applied change: {chosen_effect}. Visual style: {chosen_style}. Masterpiece, highly detailed, centered composition"
+                prompt_draw = (
+                    f"A portrait of a person with the EXACT facial features: ({person_desc}). "
+                    f"Transformation applied: {chosen_effect}. "
+                    f"Style: {chosen_style}. Masterpiece, face closely resembles the subject, sharp focus, centered."
+                )
                 encoded_prompt = urllib.parse.quote(prompt_draw)
 
                 seed_num = np.random.randint(1000, 999999)
@@ -171,9 +197,9 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
                     st.session_state['trans_orig_bytes'] = buf_orig.getvalue()
                     st.session_state['trans_result_bytes'] = res.content
                     status.update(label="✅ Biến hình hoàn tất!", state="complete", expanded=False)
-                    st.success("🎉 Tác phẩm biến hình của bạn đã sẵn sàng!")
+                    st.success("🎉 Tác phẩm biến hình đã hoàn thành với khuôn mặt của bạn!")
                 else:
-                    raise Exception("Không thể tải ảnh từ máy chủ AI.")
+                    raise Exception("Không thể tải ảnh từ máy chủ vẽ tranh.")
 
             except Exception as e:
                 status.update(label="❌ Có lỗi xảy ra!", state="error")
@@ -185,7 +211,7 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
 
         col_show1, col_show2 = st.columns(2)
         with col_show1:
-            st.image(orig_pil, caption="Ảnh Gốc", use_container_width=True)
+            st.image(orig_pil, caption="Ảnh Gốc Của Bạn", use_container_width=True)
         with col_show2:
             st.image(result_pil, caption="Ảnh Sau Biến Hình", use_container_width=True)
 
@@ -232,8 +258,9 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels)":
                 status.write("🤖 Đang phân tích kịch bản...")
                 client = genai.Client(api_key=api_key)
                 prompt = f"Hãy viết kịch bản video ngắn TikTok về chủ đề '{topic}'. Gồm đúng {len(uploaded_files)} câu súc tích tương ứng {len(uploaded_files)} ảnh. Mỗi câu 1 dòng, không đánh số."
-                res = client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
-                lines = [l.strip() for l in res.text.strip().split("\n") if l.strip()]
+                
+                res_text = generate_content_with_fallback(client, prompt)
+                lines = [l.strip() for l in res_text.strip().split("\n") if l.strip()]
 
                 with tempfile.TemporaryDirectory() as td:
                     scene_clips = []
@@ -327,16 +354,13 @@ elif feature_choice == "🕺 Video Nhảy & Biểu Cảm Meme":
                     def make_dance_frame(t):
                         bounce_y = int(18 * np.sin(2 * np.pi * 2.0 * t))
                         tilt_x = int(12 * np.cos(2 * np.pi * 1.0 * t))
-                        
                         scale = 1.0 + 0.04 * np.sin(2 * np.pi * 2.0 * t)
                         nw, nh = int(target_w * scale), int(target_h * scale)
                         im_b = meme_resized.resize((nw, nh), Image.Resampling.BILINEAR)
                         xc, yc = (nw - target_w) // 2, (nh - target_h) // 2
                         cropped = im_b.crop((xc, yc, xc + target_w, yc + target_h))
                         frame_np = np.array(cropped)
-                        
-                        shifted = np.roll(frame_np, shift=(bounce_y, tilt_x), axis=(0, 1))
-                        return shifted
+                        return np.roll(frame_np, shift=(bounce_y, tilt_x), axis=(0, 1))
 
                     dance_clip = VideoClip(make_dance_frame, duration=duration_dance)
 
@@ -391,8 +415,8 @@ elif feature_choice == "🎵 Sáng Tác Nhạc & Lời":
                 try:
                     client = genai.Client(api_key=api_key)
                     prompt = f"Sáng tác bài hát tiếng Việt phong cách {song_genre} về: '{song_topic}'. Bố cục chuẩn: [Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Outro]. Lời cảm xúc, vần điệu bắt tai."
-                    res = client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
-                    st.session_state['song_lyrics'] = res.text
+                    res_lyrics = generate_content_with_fallback(client, prompt)
+                    st.session_state['song_lyrics'] = res_lyrics
                 except Exception as e:
                     st.error(f"Lỗi: {str(e)}")
 
