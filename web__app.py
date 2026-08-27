@@ -15,9 +15,8 @@ from moviepy import (
     VideoClip
 )
 import edge_tts
-from PIL import Image, ImageEnhance
+from PIL import Image
 
-# Tự động hỗ trợ mọi định dạng ảnh điện thoại (HEIC, WEBP, JPG, PNG)
 try:
     import pillow_heif
     pillow_heif.register_heif_opener()
@@ -28,7 +27,7 @@ st.set_page_config(page_title="AI Studio Ultimate", page_icon="⚡", layout="cen
 st.title("⚡ AI Studio Ultimate")
 st.caption("Studio Đa Năng: Video Ngắn (9:16) • Sáng Tác Nhạc • Hóa Thân & Video Gồng Songoku")
 
-# Nhận diện Key tự động
+# Tự động nhận diện API Key
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
     api_key = saved_api_key
@@ -78,7 +77,7 @@ with tab1:
 
                 with tempfile.TemporaryDirectory() as td:
                     scene_clips = []
-                    target_size = (1080, 1920)
+                    target_size = (720, 1280)  # Chuẩn tối ưu dung lượng RAM
 
                     for idx, f in enumerate(uploaded_files):
                         status.write(f"🔄 Đang xử lý phân cảnh {idx+1}/{len(uploaded_files)}...")
@@ -154,7 +153,7 @@ with tab2:
                     audio_path = os.path.join(td, "song.mp3")
                     out_mv = os.path.join(td, "mv.mp4")
 
-                    im = Image.open(mv_image).convert("RGB").resize((1080, 1920), Image.Resampling.LANCZOS)
+                    im = Image.open(mv_image).convert("RGB").resize((720, 1280), Image.Resampling.LANCZOS)
                     im.save(img_path)
 
                     with open(audio_path, "wb") as f: f.write(mv_audio.read())
@@ -207,14 +206,14 @@ with tab3:
             try:
                 client = genai.Client(api_key=api_key)
                 
-                status.write("👁️ Gemini đang quét khuôn mặt và tư thế...")
+                status.write("👁️ Gemini đang quét khuôn mặt...")
                 user_image = Image.open(goku_img_file).convert("RGB")
                 
                 img_byte_arr = io.BytesIO()
-                user_image.save(img_byte_arr, format='JPEG')
+                user_image.save(img_byte_arr, format='JPEG', quality=85)
                 img_bytes = img_byte_arr.getvalue()
 
-                analysis_prompt = "Describe this person in English (gender, facial features, hair, eye angle, posture) concisely in 30 words."
+                analysis_prompt = "Describe this person in English (gender, facial features, hair, eyes, posture) concisely in 25 words."
                 
                 from google.genai import types
                 analysis_res = client.models.generate_content(
@@ -247,14 +246,16 @@ with tab3:
                 encoded_prompt = urllib.parse.quote(prompt_draw)
 
                 seed_num = np.random.randint(1000, 999999)
-                image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&model=flux&seed={seed_num}&nologo=true"
+                # Tối ưu kích thước 720x1280 để tránh tràn RAM
+                image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&model=flux&seed={seed_num}&nologo=true"
 
                 res = requests.get(image_url, timeout=30)
                 if res.status_code == 200:
-                    result_img = Image.open(io.BytesIO(res.content)).convert("RGB")
-                    
-                    st.session_state['orig_img'] = user_image
-                    st.session_state['goku_img'] = result_img
+                    # Lưu ảnh dạng bytes vào session_state để không bị mất khi load lại
+                    buf_orig = io.BytesIO()
+                    user_image.save(buf_orig, format="JPEG")
+                    st.session_state['orig_bytes'] = buf_orig.getvalue()
+                    st.session_state['goku_bytes'] = res.content
                     st.session_state['saiyan_prompt'] = (
                         f"Cinematic video transition, a person powers up violently screaming, "
                         f"golden energy aura explodes around their body, hair turns spiky golden glowing Super Saiyan, "
@@ -263,7 +264,6 @@ with tab3:
 
                     status.update(label="✅ Biến hình thành công!", state="complete", expanded=False)
                     st.success("🎉 Bạn đã hóa thân thành Son Goku!")
-
                 else:
                     raise Exception("Không thể tải ảnh từ máy chủ AI.")
 
@@ -271,10 +271,10 @@ with tab3:
                 status.update(label="❌ Có lỗi xảy ra!", state="error")
                 st.error(f"Chi tiết lỗi: {str(e)}")
 
-    # Hiển thị kết quả và 2 phương án làm video
-    if 'goku_img' in st.session_state and 'orig_img' in st.session_state:
-        orig_pil = st.session_state['orig_img']
-        goku_pil = st.session_state['goku_img']
+    # Giữ ảnh luôn hiển thị cố định
+    if 'goku_bytes' in st.session_state and 'orig_bytes' in st.session_state:
+        orig_pil = Image.open(io.BytesIO(st.session_state['orig_bytes']))
+        goku_pil = Image.open(io.BytesIO(st.session_state['goku_bytes']))
 
         col_show1, col_show2 = st.columns(2)
         with col_show1:
@@ -287,57 +287,45 @@ with tab3:
 
         tab_opt1, tab_opt2 = st.tabs(["🚀 Phương Án 1: Xuất Video Gồng Tức Thì Trên Web", "🌟 Phương Án 2: AI Video Siêu Thực (Kling/Luma)"])
 
-        # ==========================================================
-        # PHƯƠNG ÁN 1: XUẤT VIDEO GỒNG RUNG + FLASH + MORPHING
-        # ==========================================================
         with tab_opt1:
-            st.info("💡 Web sẽ tự động tạo video MP4 dài 6.5s: **Giai đoạn gồng rung lắc -> Lóe sáng -> Biến hình sang Goku -> Bùng nổ hào quang.**")
+            st.info("💡 Web sẽ tự động tạo video MP4: **Giai đoạn gồng rung lắc -> Lóe sáng -> Biến hình sang Goku -> Bùng nổ hào quang.**")
             
             if st.button("🎥 XUẤT VIDEO BIẾN HÌNH TỰ ĐỘNG (MP4)", use_container_width=True, key="btn_render_morph"):
-                with st.spinner("Đang tổng hợp hiệu ứng chuyển động rung lắc và hào quang..."):
+                with st.spinner("Đang kết xuất video..."):
                     try:
                         with tempfile.TemporaryDirectory() as td:
-                            target_w, target_h = 1080, 1920
+                            target_w, target_h = 540, 960  # Kích thước siêu nhẹ, chạy tức thì không giật lag
                             img1_resized = orig_pil.resize((target_w, target_h), Image.Resampling.LANCZOS)
                             img2_resized = goku_pil.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
                             img1_np = np.array(img1_resized)
                             img2_np = np.array(img2_resized)
 
-                            total_duration = 6.5
+                            total_duration = 5.0
 
                             def make_transformation_frame(t):
-                                # 0s - 2.0s: Gồng rung lắc mạnh (Camera Shake)
-                                if t < 2.0:
-                                    intensity = int(12 * (t / 2.0)) + 3
+                                if t < 1.8:
+                                    intensity = int(8 * (t / 1.8)) + 2
                                     dx = np.random.randint(-intensity, intensity + 1)
                                     dy = np.random.randint(-intensity, intensity + 1)
-                                    shifted = np.roll(img1_np, shift=(dy, dx), axis=(0, 1))
-                                    return shifted
-                                
-                                # 2.0s - 3.5s: Lóe sáng và Morphing (Crossfade + Flash)
-                                elif t < 3.5:
-                                    alpha = (t - 2.0) / 1.5
+                                    return np.roll(img1_np, shift=(dy, dx), axis=(0, 1))
+                                elif t < 3.0:
+                                    alpha = (t - 1.8) / 1.2
                                     blended = (1 - alpha) * img1_np.astype(float) + alpha * img2_np.astype(float)
-                                    
-                                    # Hiệu ứng lóe chớp sáng ở khoảnh khắc nổ (2.0s - 2.4s)
-                                    if t < 2.4:
-                                        flash_val = (1.0 - (t - 2.0) / 0.4) * 80
+                                    if t < 2.2:
+                                        flash_val = (1.0 - (t - 1.8) / 0.4) * 70
                                         blended = np.clip(blended + flash_val, 0, 255)
                                     return blended.astype(np.uint8)
-
-                                # 3.5s - 6.5s: Thể Goku hoàn chỉnh + Zoom bùng nổ
                                 else:
-                                    scale = 1.0 + 0.08 * ((t - 3.5) / 3.0)
+                                    scale = 1.0 + 0.06 * ((t - 3.0) / 2.0)
                                     new_w, new_h = int(target_w * scale), int(target_h * scale)
                                     im_z = goku_pil.resize((new_w, new_h), Image.Resampling.BILINEAR)
                                     xc, yc = (new_w - target_w) // 2, (new_h - target_h) // 2
-                                    cropped = im_z.crop((xc, yc, xc + target_w, yc + target_h))
-                                    return np.array(cropped)
+                                    return np.array(im_z.crop((xc, yc, xc + target_w, yc + target_h)))
 
                             clip = VideoClip(make_transformation_frame, duration=total_duration)
                             out_video_path = os.path.join(td, "goku_transform.mp4")
-                            clip.write_videofile(out_video_path, fps=24, codec="libx264", audio=False, logger=None)
+                            clip.write_videofile(out_video_path, fps=20, codec="libx264", audio=False, logger=None)
 
                             with open(out_video_path, "rb") as vf:
                                 video_bytes = vf.read()
@@ -357,9 +345,6 @@ with tab3:
                     except Exception as e:
                         st.error(f"Lỗi xuất video: {str(e)}")
 
-        # ==========================================================
-        # PHƯƠNG ÁN 2: DÙNG KLING / LUMA DIFFUSION CHO PHIM SIÊU THỰC
-        # ==========================================================
         with tab_opt2:
             st.info("""
             **Cách tạo video người thật gồng hét há miệng biến thành Saiyan 100% như phim Hollywood:**
@@ -371,12 +356,8 @@ with tab3:
 
             col_dl1, col_dl2 = st.columns(2)
             with col_dl1:
-                b1 = io.BytesIO()
-                orig_pil.save(b1, format="JPEG")
-                st.download_button("📥 1. Tải Start Frame (Ảnh Gốc)", b1.getvalue(), "Frame1_Original.jpg", "image/jpeg", use_container_width=True)
+                st.download_button("📥 1. Tải Start Frame (Ảnh Gốc)", st.session_state['orig_bytes'], "Frame1_Original.jpg", "image/jpeg", use_container_width=True)
             with col_dl2:
-                b2 = io.BytesIO()
-                goku_pil.save(b2, format="JPEG")
-                st.download_button("📥 2. Tải End Frame (Ảnh Goku)", b2.getvalue(), "Frame2_Goku.jpg", "image/jpeg", use_container_width=True)
+                st.download_button("📥 2. Tải End Frame (Ảnh Goku)", st.session_state['goku_bytes'], "Frame2_Goku.jpg", "image/jpeg", use_container_width=True)
 
             st.text_area("📋 Prompt AI Video (Copy dán vào Kling / Luma):", st.session_state['saiyan_prompt'], height=100)
