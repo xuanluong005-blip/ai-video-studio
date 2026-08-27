@@ -27,7 +27,6 @@ except Exception:
 
 st.set_page_config(page_title="AI Studio Ultimate", page_icon="✨", layout="centered")
 
-# Hàm gọi Gemini với model chuẩn gemini-3.6-flash
 def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-flash"):
     candidate_models = [
         primary_model,
@@ -85,12 +84,12 @@ feature_choice = st.radio(
 st.markdown("---")
 
 # ==========================================================
-# 1. VŨ TRỤ BIẾN HÌNH AI
+# 1. VŨ TRỤ BIẾN HÌNH AI (ẢNH HD + VIDEO ĐỘNG 3D 6 GIÂY)
 # ==========================================================
 if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)":
-    st.image(BANNER_URLS["TRANSFORM"], caption="⚡ Vũ Trụ Biến Hình AI: Giữ Nguyên Gương Mặt Thật", use_container_width=True)
-    st.subheader("🎭 Vũ Trụ Biến Hình AI (Khóa Nét Mặt Gốc)")
-    st.caption("Tải ảnh chân dung rõ mặt, AI sẽ phân tích và giữ nét mặt của bạn khi biến hình!")
+    st.image(BANNER_URLS["TRANSFORM"], caption="⚡ Vũ Trụ Biến Hình AI: Tạo Ảnh & Video Động 3D 6s", use_container_width=True)
+    st.subheader("🎭 Vũ Trụ Biến Hình AI (Khóa Nét Mặt + Xuất Video 3D 6s)")
+    st.caption("Tải ảnh chân dung rõ mặt, AI sẽ tạo tác phẩm biến hình kèm Video động 6s!")
 
     trans_img_file = st.file_uploader(
         "📸 Tải lên ảnh chân dung cận mặt của bạn:", 
@@ -125,13 +124,13 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
             ]
         )
 
-    if st.button("✨ BIẾN HÌNH GIỮ GƯƠNG MẶT NGAY", use_container_width=True, key="btn_execute_trans"):
+    if st.button("✨ BIẾN HÌNH & TẠO VIDEO 3D 6S", use_container_width=True, key="btn_execute_trans"):
         if not api_key:
             st.error("⚠️ Vui lòng đảm bảo đã kết nối Gemini API Key!")
         elif not trans_img_file:
             st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung rõ mặt!")
         else:
-            status = st.status("🔮 Đang quét và khóa nét gương mặt thật...", expanded=True)
+            status = st.status("🔮 Đang kích hoạt hiệu ứng biến hình...", expanded=True)
             try:
                 client = genai.Client(api_key=api_key)
                 user_image = Image.open(trans_img_file).convert("RGB")
@@ -140,7 +139,7 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
                 user_image.save(img_byte_arr, format='JPEG', quality=85)
                 img_bytes = img_byte_arr.getvalue()
 
-                status.write("👁️ Đang trích xuất tỉ lệ khuôn mặt, mắt, mũi, cằm...")
+                status.write("👁️ Gemini đang trích xuất tỉ lệ khuôn mặt, mắt, mũi, cằm...")
                 analysis_prompt = (
                     "Look closely at the person in this image. Write a detailed description focusing ONLY on their "
                     "facial identity: exact ethnicity, face shape, jawline, eye shape, nose structure, lips, skin tone, "
@@ -155,7 +154,7 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
                 person_desc_text = generate_content_with_fallback(client, contents_payload, primary_model="gemini-3.6-flash")
                 person_desc = person_desc_text.strip().replace("\n", " ")
 
-                status.write("🎨 Đang kết hợp gương mặt gốc với hiệu ứng biến hình...")
+                status.write("🎨 Đang vẽ ảnh nhân vật 3D...")
 
                 effect_prompt_map = {
                     "💪 Phình To Cơ Bắp (Lực Sĩ Thể Hình Khổng Lồ)": "transformed body with massive shredded bodybuilder muscles, giant vascular biceps and traps, keeping the exact same facial identity, heroic power pose",
@@ -195,8 +194,52 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
                     user_image.save(buf_orig, format="JPEG")
                     st.session_state['trans_orig_bytes'] = buf_orig.getvalue()
                     st.session_state['trans_result_bytes'] = res.content
-                    status.update(label="✅ Biến hình hoàn tất!", state="complete", expanded=False)
-                    st.success("🎉 Tác phẩm biến hình đã hoàn thành với khuôn mặt của bạn!")
+
+                    # Dựng video động chuyển đổi 6 giây
+                    status.write("🎬 Đang tổng hợp video động 3D chuyển đổi 6 giây...")
+                    with tempfile.TemporaryDirectory() as td:
+                        target_w, target_h = 540, 960
+                        result_pil_img = Image.open(io.BytesIO(res.content)).convert("RGB")
+                        
+                        img1_resized = user_image.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                        img2_resized = result_pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+                        img1_np = np.array(img1_resized)
+                        img2_np = np.array(img2_resized)
+
+                        total_duration = 6.0
+
+                        def make_transformation_frame(t):
+                            if t < 2.0:
+                                intensity = int(10 * (t / 2.0)) + 2
+                                dx = np.random.randint(-intensity, intensity + 1)
+                                dy = np.random.randint(-intensity, intensity + 1)
+                                return np.roll(img1_np, shift=(dy, dx), axis=(0, 1))
+                            elif t < 3.5:
+                                alpha = (t - 2.0) / 1.5
+                                blended = (1 - alpha) * img1_np.astype(float) + alpha * img2_np.astype(float)
+                                if t < 2.4:
+                                    flash_val = (1.0 - (t - 2.0) / 0.4) * 80
+                                    blended = np.clip(blended + flash_val, 0, 255)
+                                return blended.astype(np.uint8)
+                            else:
+                                scale = 1.0 + 0.06 * ((t - 3.5) / 2.5)
+                                new_w, new_h = int(target_w * scale), int(target_h * scale)
+                                im_z = result_pil_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
+                                xc, yc = (new_w - target_w) // 2, (new_h - target_h) // 2
+                                return np.array(im_z.crop((xc, yc, xc + target_w, yc + target_h)))
+
+                        clip = VideoClip(make_transformation_frame, duration=total_duration)
+                        out_video_path = os.path.join(td, "trans_video.mp4")
+                        clip.write_videofile(out_video_path, fps=24, codec="libx264", audio=False, logger=None)
+
+                        with open(out_video_path, "rb") as vf:
+                            st.session_state['trans_video_bytes'] = vf.read()
+
+                        clip.close()
+
+                    status.update(label="✅ Hoàn tất cả Ảnh và Video 3D!", state="complete", expanded=False)
+                    st.success("🎉 Tác phẩm và Video động 3D của bạn đã hoàn thành!")
                 else:
                     raise Exception("Không thể tải ảnh từ máy chủ vẽ tranh.")
 
@@ -208,6 +251,19 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
         orig_pil = Image.open(io.BytesIO(st.session_state['trans_orig_bytes']))
         result_pil = Image.open(io.BytesIO(st.session_state['trans_result_bytes']))
 
+        st.markdown("#### 1. Video Động 3D Chuyển Đổi 6 Giây:")
+        if 'trans_video_bytes' in st.session_state:
+            st.video(st.session_state['trans_video_bytes'])
+            st.download_button(
+                label="📥 Tải Video Động 3D Biến Hình (.mp4)",
+                data=st.session_state['trans_video_bytes'],
+                file_name="AI_Transformation_6s.mp4",
+                mime="video/mp4",
+                use_container_width=True
+            )
+
+        st.markdown("---")
+        st.markdown("#### 2. Ảnh So Sánh Chi Tiết:")
         col_show1, col_show2 = st.columns(2)
         with col_show1:
             st.image(orig_pil, caption="Ảnh Gốc Của Bạn", use_container_width=True)
@@ -215,7 +271,7 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
             st.image(result_pil, caption="Ảnh Sau Biến Hình", use_container_width=True)
 
         st.download_button(
-            label="📥 Tải Ảnh Biến Hình Về Điện Thoại",
+            label="📥 Tải Ảnh Tĩnh Biến Hình (.jpg)",
             data=st.session_state['trans_result_bytes'],
             file_name="AI_Transform_Result.jpg",
             mime="image/jpeg",
