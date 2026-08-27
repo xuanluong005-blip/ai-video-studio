@@ -3,5 +3,6 @@ google-genai
 moviepy
 edge-tts
 pillow
+pillow-heif
 numpy
 requests
