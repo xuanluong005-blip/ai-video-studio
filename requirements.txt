@@ -6,3 +6,4 @@ pillow
 pillow-heif
 numpy
 requests
+gradio_client
