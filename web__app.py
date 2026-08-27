@@ -11,12 +11,13 @@ from moviepy import (
     ImageClip, 
     AudioFileClip, 
     CompositeAudioClip, 
-    concatenate_videoclips
+    concatenate_videoclips,
+    VideoClip
 )
 import edge_tts
-from PIL import Image
+from PIL import Image, ImageEnhance
 
-# Hỗ trợ đọc mọi định dạng ảnh từ iPhone (HEIC) và WebP
+# Tự động hỗ trợ mọi định dạng ảnh điện thoại (HEIC, WEBP, JPG, PNG)
 try:
     import pillow_heif
     pillow_heif.register_heif_opener()
@@ -25,9 +26,9 @@ except:
 
 st.set_page_config(page_title="AI Studio Ultimate", page_icon="⚡", layout="centered")
 st.title("⚡ AI Studio Ultimate")
-st.caption("Studio Đa Năng: Video Ngắn (9:16) • Sáng Tác Nhạc • Hóa Thân Songoku AI")
+st.caption("Studio Đa Năng: Video Ngắn (9:16) • Sáng Tác Nhạc • Hóa Thân & Video Gồng Songoku")
 
-# Tự động nhận diện Key từ Secrets hoặc cho phép nhập
+# Nhận diện Key tự động
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
     api_key = saved_api_key
@@ -173,7 +174,7 @@ with tab2:
                     st.download_button("📥 Tải Music Video Về Máy", mv_bytes, "Music_Video.mp4", "video/mp4", use_container_width=True)
 
 # ==========================================
-# TAB 3: HÓA THÂN THÀNH SONGOKU (MIỄN PHÍ 100%)
+# TAB 3: HÓA THÂN & TẠO VIDEO GỒNG BIẾN HÌNH SONGOKU
 # ==========================================
 with tab3:
     st.subheader("⚡ Biến Ảnh Người Thật Thành Son Goku / Super Saiyan")
@@ -184,7 +185,7 @@ with tab3:
         saiyan_form = st.selectbox(
             "🔥 Chọn cấp độ biến hình (Form):",
             [
-                "Super Saiyan Cấp 1 (Tóc vàng rực lửa)", 
+                "Super Saiyan Cấp 1 (Tóc vàng kim rực lửa)", 
                 "Super Saiyan Blue (Tóc xanh dương thần thánh)", 
                 "Bản Năng Vô Cực - Ultra Instinct (Tóc bạc)",
                 "Son Goku Cơ Bản (Tóc đen nguyên bản)"
@@ -209,7 +210,6 @@ with tab3:
                 status.write("👁️ Gemini đang quét khuôn mặt và tư thế...")
                 user_image = Image.open(goku_img_file).convert("RGB")
                 
-                # Chuyển ảnh sang dạng Bytes để gửi Gemini phân tích
                 img_byte_arr = io.BytesIO()
                 user_image.save(img_byte_arr, format='JPEG')
                 img_bytes = img_byte_arr.getvalue()
@@ -226,9 +226,9 @@ with tab3:
                 )
                 person_desc = analysis_res.text.strip().replace("\n", " ")
 
-                status.write("🔥 Đang tụ năng lượng Ki và vẽ ảnh...")
+                status.write("🔥 Đang vẽ ảnh Son Goku...")
                 form_dict = {
-                    "Super Saiyan Cấp 1 (Tóc vàng rực lửa)": "Super Saiyan with glowing spiky yellow hair, intense golden aura, teal eyes, wearing orange Turtle School gi",
+                    "Super Saiyan Cấp 1 (Tóc vàng kim rực lửa)": "Super Saiyan with glowing spiky yellow hair, intense golden aura, teal eyes, wearing orange Turtle School gi",
                     "Super Saiyan Blue (Tóc xanh dương thần thánh)": "Super Saiyan Blue SSGSS, glowing bright cyan blue spiky hair, divine blue fire aura, orange gi",
                     "Bản Năng Vô Cực - Ultra Instinct (Tóc bạc)": "Mastered Ultra Instinct, glowing silver white spiky hair, divine celestial aura, torn orange gi",
                     "Son Goku Cơ Bản (Tóc đen nguyên bản)": "Base form Son Goku, iconic black spiky hair, classic orange and blue martial arts gi"
@@ -246,35 +246,137 @@ with tab3:
                 prompt_draw = f"Portrait transformation of {person_desc} into Son Goku character from Dragon Ball, {chosen_f}, {chosen_s}, masterpiece, highly detailed, centered"
                 encoded_prompt = urllib.parse.quote(prompt_draw)
 
-                # Sử dụng Pollinations AI (Miễn phí 100%, render ảnh 9:16 sắc nét)
                 seed_num = np.random.randint(1000, 999999)
                 image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&model=flux&seed={seed_num}&nologo=true"
 
                 res = requests.get(image_url, timeout=30)
                 if res.status_code == 200:
-                    result_img = Image.open(io.BytesIO(res.content))
+                    result_img = Image.open(io.BytesIO(res.content)).convert("RGB")
                     
-                    status.update(label="✅ Biến hình thành công!", state="complete", expanded=False)
-                    st.success("🎉 Bạn đã hóa thân thành Son Goku thành công!")
-
-                    col_show1, col_show2 = st.columns(2)
-                    with col_show1:
-                        st.image(user_image, caption="Ảnh Gốc", use_container_width=True)
-                    with col_show2:
-                        st.image(result_img, caption="Phiên Bản Son Goku AI", use_container_width=True)
-
-                    buf = io.BytesIO()
-                    result_img.save(buf, format="JPEG", quality=95)
-                    st.download_button(
-                        label="📥 Tải Ảnh Son Goku Về Điện Thoại",
-                        data=buf.getvalue(),
-                        file_name="Songoku_AI.jpg",
-                        mime="image/jpeg",
-                        use_container_width=True
+                    st.session_state['orig_img'] = user_image
+                    st.session_state['goku_img'] = result_img
+                    st.session_state['saiyan_prompt'] = (
+                        f"Cinematic video transition, a person powers up violently screaming, "
+                        f"golden energy aura explodes around their body, hair turns spiky golden glowing Super Saiyan, "
+                        f"epic Dragon Ball live-action transformation, 8k cinematic masterpiece"
                     )
+
+                    status.update(label="✅ Biến hình thành công!", state="complete", expanded=False)
+                    st.success("🎉 Bạn đã hóa thân thành Son Goku!")
+
                 else:
                     raise Exception("Không thể tải ảnh từ máy chủ AI.")
 
             except Exception as e:
                 status.update(label="❌ Có lỗi xảy ra!", state="error")
                 st.error(f"Chi tiết lỗi: {str(e)}")
+
+    # Hiển thị kết quả và 2 phương án làm video
+    if 'goku_img' in st.session_state and 'orig_img' in st.session_state:
+        orig_pil = st.session_state['orig_img']
+        goku_pil = st.session_state['goku_img']
+
+        col_show1, col_show2 = st.columns(2)
+        with col_show1:
+            st.image(orig_pil, caption="Ảnh Gốc Của Bạn", use_container_width=True)
+        with col_show2:
+            st.image(goku_pil, caption="Ảnh Son Goku AI", use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("🎬 Chọn Cách Xuất Video Biến Hình Super Saiyan:")
+
+        tab_opt1, tab_opt2 = st.tabs(["🚀 Phương Án 1: Xuất Video Gồng Tức Thì Trên Web", "🌟 Phương Án 2: AI Video Siêu Thực (Kling/Luma)"])
+
+        # ==========================================================
+        # PHƯƠNG ÁN 1: XUẤT VIDEO GỒNG RUNG + FLASH + MORPHING
+        # ==========================================================
+        with tab_opt1:
+            st.info("💡 Web sẽ tự động tạo video MP4 dài 6.5s: **Giai đoạn gồng rung lắc -> Lóe sáng -> Biến hình sang Goku -> Bùng nổ hào quang.**")
+            
+            if st.button("🎥 XUẤT VIDEO BIẾN HÌNH TỰ ĐỘNG (MP4)", use_container_width=True, key="btn_render_morph"):
+                with st.spinner("Đang tổng hợp hiệu ứng chuyển động rung lắc và hào quang..."):
+                    try:
+                        with tempfile.TemporaryDirectory() as td:
+                            target_w, target_h = 1080, 1920
+                            img1_resized = orig_pil.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                            img2_resized = goku_pil.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+                            img1_np = np.array(img1_resized)
+                            img2_np = np.array(img2_resized)
+
+                            total_duration = 6.5
+
+                            def make_transformation_frame(t):
+                                # 0s - 2.0s: Gồng rung lắc mạnh (Camera Shake)
+                                if t < 2.0:
+                                    intensity = int(12 * (t / 2.0)) + 3
+                                    dx = np.random.randint(-intensity, intensity + 1)
+                                    dy = np.random.randint(-intensity, intensity + 1)
+                                    shifted = np.roll(img1_np, shift=(dy, dx), axis=(0, 1))
+                                    return shifted
+                                
+                                # 2.0s - 3.5s: Lóe sáng và Morphing (Crossfade + Flash)
+                                elif t < 3.5:
+                                    alpha = (t - 2.0) / 1.5
+                                    blended = (1 - alpha) * img1_np.astype(float) + alpha * img2_np.astype(float)
+                                    
+                                    # Hiệu ứng lóe chớp sáng ở khoảnh khắc nổ (2.0s - 2.4s)
+                                    if t < 2.4:
+                                        flash_val = (1.0 - (t - 2.0) / 0.4) * 80
+                                        blended = np.clip(blended + flash_val, 0, 255)
+                                    return blended.astype(np.uint8)
+
+                                # 3.5s - 6.5s: Thể Goku hoàn chỉnh + Zoom bùng nổ
+                                else:
+                                    scale = 1.0 + 0.08 * ((t - 3.5) / 3.0)
+                                    new_w, new_h = int(target_w * scale), int(target_h * scale)
+                                    im_z = goku_pil.resize((new_w, new_h), Image.Resampling.BILINEAR)
+                                    xc, yc = (new_w - target_w) // 2, (new_h - target_h) // 2
+                                    cropped = im_z.crop((xc, yc, xc + target_w, yc + target_h))
+                                    return np.array(cropped)
+
+                            clip = VideoClip(make_transformation_frame, duration=total_duration)
+                            out_video_path = os.path.join(td, "goku_transform.mp4")
+                            clip.write_videofile(out_video_path, fps=24, codec="libx264", audio=False, logger=None)
+
+                            with open(out_video_path, "rb") as vf:
+                                video_bytes = vf.read()
+
+                            clip.close()
+
+                            st.success("🎉 Video biến hình đã sẵn sàng!")
+                            st.video(video_bytes)
+                            st.download_button(
+                                "📥 Tải Video Biến Hình (.mp4)",
+                                data=video_bytes,
+                                file_name="Goku_Super_Saiyan_Transformation.mp4",
+                                mime="video/mp4",
+                                use_container_width=True
+                            )
+
+                    except Exception as e:
+                        st.error(f"Lỗi xuất video: {str(e)}")
+
+        # ==========================================================
+        # PHƯƠNG ÁN 2: DÙNG KLING / LUMA DIFFUSION CHO PHIM SIÊU THỰC
+        # ==========================================================
+        with tab_opt2:
+            st.info("""
+            **Cách tạo video người thật gồng hét há miệng biến thành Saiyan 100% như phim Hollywood:**
+            1. Tải 2 bức ảnh bên dưới về điện thoại.
+            2. Mở web **[klingai.com](https://klingai.com)** hoặc **[lumalabs.ai/dream-machine](https://lumalabs.ai/dream-machine)** (Miễn phí).
+            3. Chọn tính năng **Start Frame (Ảnh đầu)** = Ảnh gốc, và **End Frame (Ảnh cuối)** = Ảnh Goku.
+            4. Dán đoạn Prompt chuẩn tiếng Anh bên dưới vào để AI kết xuất video!
+            """)
+
+            col_dl1, col_dl2 = st.columns(2)
+            with col_dl1:
+                b1 = io.BytesIO()
+                orig_pil.save(b1, format="JPEG")
+                st.download_button("📥 1. Tải Start Frame (Ảnh Gốc)", b1.getvalue(), "Frame1_Original.jpg", "image/jpeg", use_container_width=True)
+            with col_dl2:
+                b2 = io.BytesIO()
+                goku_pil.save(b2, format="JPEG")
+                st.download_button("📥 2. Tải End Frame (Ảnh Goku)", b2.getvalue(), "Frame2_Goku.jpg", "image/jpeg", use_container_width=True)
+
+            st.text_area("📋 Prompt AI Video (Copy dán vào Kling / Luma):", st.session_state['saiyan_prompt'], height=100)
