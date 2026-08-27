@@ -83,7 +83,7 @@ feature_choice = st.radio(
 st.markdown("---")
 
 # ==========================================================
-# 1. VIDEO AI CỬ ĐỘNG CƠ MẶT & NHẢY MEME (LIVEPORTRAIT ENGINE)
+# 1. VIDEO AI CỬ ĐỘNG CƠ MẶT (LIVEPORTRAIT ENGINE)
 # ==========================================================
 if feature_choice == "🕺 Video AI Cử Động Cơ Mặt & Nhảy Meme (LivePortrait)":
     st.image(BANNER_URLS["MEME"], caption="🕺 AI Face Motion: Cử động mắt, nhíu mày, lắc đầu 3D", use_container_width=True)
@@ -131,15 +131,13 @@ if feature_choice == "🕺 Video AI Cử Động Cơ Mặt & Nhảy Meme (LivePo
                             video_output_path = result[0]
                         elif isinstance(result, str):
                             video_output_path = result
-                    except Exception as e:
+                    except Exception:
                         status.write("⚠️ Máy chủ chính bận, chuyển sang chế độ đồ họa nội bộ...")
 
-                    # Nếu kết nối HuggingFace bận, kích hoạt bộ render chuyển động mượt dự phòng
                     if not video_output_path or not os.path.exists(video_output_path):
                         status.write("🎬 Đang kết xuất video chuyển động mượt mà...")
                         target_w, target_h = 540, 960
                         im_resized = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                        im_np = np.array(im_resized)
                         duration = 5.0
 
                         def make_face_motion_frame(t):
@@ -320,7 +318,7 @@ elif feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime..
                                 scale = 1.0 + 0.06 * ((t - 3.5) / 2.5)
                                 new_w, new_h = int(target_w * scale), int(target_h * scale)
                                 im_z = result_pil_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
-                                xc, yc = (new_w - target_w) // 2, (new_h - target_h) // 2
+                                xc, yc = (new_w - target_w) // 2, (nh - target_h) // 2 if 'nh' in locals() else (new_h - target_h) // 2
                                 return np.array(im_z.crop((xc, yc, xc + target_w, yc + target_h)))
 
                         clip = VideoClip(make_transformation_frame, duration=total_duration)
@@ -409,4 +407,104 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels)":
                 prompt = f"Hãy viết kịch bản video ngắn TikTok về chủ đề '{topic}'. Gồm đúng {len(uploaded_files)} câu súc tích tương ứng {len(uploaded_files)} ảnh. Mỗi câu 1 dòng, không đánh số."
                 
                 res_text = generate_content_with_fallback(client, prompt, primary_model="gemini-3.6-flash")
-                lines =
+                lines = [l.strip() for l in res_text.strip().split("\n") if l.strip()]
+
+                with tempfile.TemporaryDirectory() as td:
+                    scene_clips = []
+                    target_size = (720, 1280)
+
+                    for idx, f in enumerate(uploaded_files):
+                        status.write(f"🔄 Đang xử lý phân cảnh {idx+1}/{len(uploaded_files)}...")
+                        txt = lines[idx] if idx < len(lines) else f"Nội dung minh họa số {idx+1}."
+                        
+                        a_path = os.path.join(td, f"v_{idx}.mp3")
+                        asyncio.run(create_voice(txt, voice_option, a_path))
+
+                        img_path = os.path.join(td, f"img_{idx}.jpg")
+                        im = Image.open(f).convert("RGB").resize(target_size, Image.Resampling.LANCZOS)
+                        im.save(img_path)
+
+                        ac = AudioFileClip(a_path)
+                        ic = ImageClip(img_path).with_duration(ac.duration).with_audio(ac)
+                        scene_clips.append(ic)
+
+                    status.write("🎬 Đang kết xuất video...")
+                    final_video = concatenate_videoclips(scene_clips, method="compose")
+                    out_video = os.path.join(td, "output.mp4")
+                    final_video.write_videofile(out_video, fps=24, codec="libx264", audio_codec="aac", logger=None)
+
+                    with open(out_video, "rb") as out_f:
+                        video_bytes = out_f.read()
+
+                    final_video.close()
+                    for sc in scene_clips:
+                        sc.close()
+
+                    status.update(label="✅ Đã hoàn tất!", state="complete", expanded=False)
+                    st.success("🎉 Video của bạn đã sẵn sàng!")
+                    st.video(video_bytes)
+                    st.download_button("📥 Tải Video Về Máy", video_bytes, "video_9_16.mp4", "video/mp4", use_container_width=True)
+
+            except Exception as e:
+                status.update(label="❌ Lỗi xử lý!", state="error")
+                st.error(f"Chi tiết: {str(e)}")
+
+# ==========================================================
+# 4. SÁNG TÁC NHẠC & LỜI
+# ==========================================================
+elif feature_choice == "🎵 Sáng Tác Nhạc & Lời":
+    st.image(BANNER_URLS["MUSIC"], caption="🎵 AI Studio Sáng Tác Nhạc & Phổ Thơ", use_container_width=True)
+    st.subheader("1. Sáng tác lời bài hát (Lyrics AI)")
+    song_topic = st.text_input("💡 Chủ đề ca khúc:", placeholder="VD: Tình yêu tuổi học trò, Nhạc truyền động lực...")
+    song_genre = st.selectbox("🎸 Thể loại âm nhạc:", ["Pop Ballad", "Rap / Hip-Hop", "Rock", "Lofi Chill", "Nhạc Quê Hương"])
+
+    if st.button("✍️ SÁNG TÁC LỜI BÀI HÁT", use_container_width=True, key="btn_lyrics"):
+        if not api_key or not song_topic:
+            st.error("⚠️ Vui lòng nhập API Key và chủ đề bài hát!")
+        else:
+            with st.spinner("AI đang sáng tác lời và gieo vần..."):
+                try:
+                    client = genai.Client(api_key=api_key)
+                    prompt = f"Sáng tác bài hát tiếng Việt phong cách {song_genre} về: '{song_topic}'. Bố cục chuẩn: [Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Outro]. Lời cảm xúc, vần điệu bắt tai."
+                    res_lyrics = generate_content_with_fallback(client, prompt, primary_model="gemini-3.6-flash")
+                    st.session_state['song_lyrics'] = res_lyrics
+                except Exception as e:
+                    st.error(f"Lỗi: {str(e)}")
+
+    if 'song_lyrics' in st.session_state:
+        st.text_area("📝 Lời bài hát đã tạo:", st.session_state['song_lyrics'], height=250)
+        st.info("💡 Bạn copy lời bài hát trên dán vào **Suno.com** để tạo file MP3 có ca sĩ hát miễn phí!")
+
+    st.subheader("2. Ghép Ảnh & Nhạc thành Music Video")
+    mv_image = st.file_uploader("🖼️ Chọn ảnh bìa bài hát:", type=["jpg", "jpeg", "png", "heic", "webp"], key="mv_img_upload")
+    mv_audio = st.file_uploader("🎵 Tải lên file nhạc MP3 (Bài hát):", type=["mp3"], key="mv_audio_upload")
+
+    if st.button("🎬 XUẤT MUSIC VIDEO", use_container_width=True, key="btn_mv_render"):
+        if not mv_image or not mv_audio:
+            st.error("⚠️ Vui lòng tải đủ cả Ảnh bìa và File nhạc MP3!")
+        else:
+            with st.spinner("Đang ghép nhạc và ảnh thành video..."):
+                with tempfile.TemporaryDirectory() as td:
+                    img_path = os.path.join(td, "cover.jpg")
+                    audio_path = os.path.join(td, "song.mp3")
+                    out_mv = os.path.join(td, "mv.mp4")
+
+                    im = Image.open(mv_image).convert("RGB").resize((720, 1280), Image.Resampling.LANCZOS)
+                    im.save(img_path)
+
+                    with open(audio_path, "wb") as f:
+                        f.write(mv_audio.read())
+
+                    ac = AudioFileClip(audio_path)
+                    ic = ImageClip(img_path).with_duration(ac.duration).with_audio(ac)
+                    ic.write_videofile(out_mv, fps=24, codec="libx264", audio_codec="aac", logger=None)
+
+                    with open(out_mv, "rb") as f:
+                        mv_bytes = f.read()
+
+                    ic.close()
+                    ac.close()
+
+                    st.success("🎉 Music Video đã hoàn tất!")
+                    st.video(mv_bytes)
+                    st.download_button("📥 Tải Music Video Về Máy", mv_bytes, "Music_Video.mp4", "video/mp4", use_container_width=True)
