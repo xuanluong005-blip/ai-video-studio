@@ -50,15 +50,15 @@ def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-f
 
 BANNER_URLS = {
     "HERO": "https://image.pollinations.ai/prompt/Futuristic%20creative%20AI%20video%20and%20music%20production%20studio,%20glowing%20neon%20holograms,%20Super%20Saiyan%20energy%20and%20dancing%20characters,%20ultra%20vibrant%203D%20cinematic%20digital%20art,%208k%20masterpiece?width=1200&height=400&model=flux&seed=777&nologo=true",
+    "SQUISH": "https://image.pollinations.ai/prompt/Cute%20chubby%20baby%20cheeks%20being%20gently%20squished%20by%20a%20hand,%20hilarious%20pouting%20grumpy%20expression,%20hyper-realistic%203D%20render,%20cinematic%20lighting?width=1080&height=350&model=flux&seed=444&nologo=true",
     "TRANSFORM": "https://image.pollinations.ai/prompt/Epic%20character%20transformation,%20split%20view%20between%20Super%20Saiyan%20golden%20hair%20and%20giant%20muscular%20hero,%20energetic%20lighting%20sparks,%20cinematic%203D%20render,%208k?width=1080&height=350&model=flux&seed=888&nologo=true",
     "VIDEO": "https://image.pollinations.ai/prompt/Social%20media%20short%20video%20creator%20concept,%209:16%20smartphone%20screen%20floating%20with%20cinematic%20scenes,%20subtitles,%20vibrant%20colors,%203D%20render?width=1080&height=350&model=flux&seed=999&nologo=true",
-    "MEME": "https://image.pollinations.ai/prompt/Funny%20chubby%20cute%20baby%20wearing%20sunglasses%20dancing%20hip-hop%20on%20stage%20with%20colorful%20lights,%20joyful%203D%20animation%20style,%20high%20detail?width=1080&height=350&model=flux&seed=555&nologo=true",
     "MUSIC": "https://image.pollinations.ai/prompt/Neon%20glowing%20music%20studio,%20floating%20musical%20notes,%20soundwaves,%20headphones,%20cyberpunk%20aesthetic,%20ultra%20detailed%203D?width=1080&height=350&model=flux&seed=333&nologo=true"
 }
 
 st.image(BANNER_URLS["HERO"], use_container_width=True)
 st.title("✨ AI Studio Ultimate")
-st.caption("Nền tảng sáng tạo đa phương tiện: Video TikTok • Biến Hình AI • Nhảy Meme • Sáng Tác Nhạc")
+st.caption("Nền tảng sáng tạo đa phương tiện: Video TikTok • Bóp Má Meme 3D • Biến Hình AI • Sáng Tác Nhạc")
 
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
@@ -67,11 +67,12 @@ if saved_api_key:
 else:
     api_key = st.text_input("🔑 Gemini API Key (*):", type="password", placeholder="Nhập Gemini API Key của bạn...")
 
+# MENU LỰA CHỌN CHỨC NĂNG
 st.markdown("### 🎯 Chọn Chức Năng Bạn Muốn Dùng:")
 feature_choice = st.radio(
     "Danh sách tính năng:",
     [
-        "🕺 Video AI Cử Động Cơ Mặt & Nhảy Meme (LivePortrait)",
+        "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style - Miễn Phí)",
         "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)",
         "🎬 Tạo Video Ngắn (TikTok/Reels)",
         "🎵 Sáng Tác Nhạc & Lời"
@@ -83,98 +84,87 @@ feature_choice = st.radio(
 st.markdown("---")
 
 # ==========================================================
-# 1. VIDEO AI CỬ ĐỘNG CƠ MẶT (LIVEPORTRAIT ENGINE)
+# 1. TÍNH NĂNG BÓP MÁ PHỒNG MẶT 3D (TÍCH HỢP KLING & COLAB)
 # ==========================================================
-if feature_choice == "🕺 Video AI Cử Động Cơ Mặt & Nhảy Meme (LivePortrait)":
-    st.image(BANNER_URLS["MEME"], caption="🕺 AI Face Motion: Cử động mắt, nhíu mày, lắc đầu 3D", use_container_width=True)
-    st.subheader("🕺 Tạo Video Cử Động Cơ Mặt & Biểu Cảm 3D (Phong cách Mivora)")
-    st.caption("Tải 1 ảnh chân dung/em bé, AI sẽ tự động điều khiển cơ mặt uốn lượn, lắc đầu và nhíu mày!")
+if feature_choice == "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style - Miễn Phí)":
+    st.image(BANNER_URLS["SQUISH"], caption="🤏 Tạo Video Bóp Má Phồng Mặt & Biểu Cảm Hờn Dỗi (Miễn Phí 100%)", use_container_width=True)
+    st.subheader("🤏 Tạo Video Bóp Má & Hờn Dỗi 3D Chuẩn Mivora")
+    st.caption("Tải 1 ảnh chân dung/em bé, hệ thống sẽ chuẩn hóa ảnh và hỗ trợ tạo video tương tác vật lý hoàn toàn miễn phí!")
 
-    face_motion_file = st.file_uploader(
-        "📸 Tải ảnh chân dung khuôn mặt rõ nét:", 
+    squish_file = st.file_uploader(
+        "📸 Tải ảnh chân dung rõ mặt:", 
         type=["jpg", "jpeg", "png", "heic", "webp"], 
-        key="uploader_face_motion"
+        key="uploader_squish"
     )
 
-    motion_style = st.selectbox(
-        "🎭 Chọn kiểu biểu cảm & cử động:",
+    squish_type = st.selectbox(
+        "🎭 Chọn phong cách tương tác:",
         [
-            "Nhíu mày hờn dỗi & Lắc đầu (Mivora Baby Reaction)",
-            "Cười nháy mắt duyên dáng (Wink & Smile)",
-            "Lắc lư đầu theo nhịp nhạc sôi động (Rhythm Head Bobbing)"
+            "Bàn tay bóp má phồng lên $\rightarrow$ Thả ra nhăn mặt dỗi (Mivora Standard)",
+            "Véov má 2 bên dễ thương $\rightarrow$ Thả ra cười tít mắt",
+            "Bàn tay chọc vào má $\rightarrow$ Phồng mang trợn mắt hài hước"
         ]
     )
 
-    if st.button("🚀 XUẤT VIDEO CỬ ĐỘNG 3D NGAY", use_container_width=True, key="btn_run_liveportrait"):
-        if not face_motion_file:
-            st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung rõ mặt!")
+    if st.button("🚀 CHUẨN BỊ XUẤT VIDEO 3D MIỄN PHÍ", use_container_width=True, key="btn_prep_squish"):
+        if not squish_file:
+            st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung!")
         else:
-            status = st.status("🕺 Đang kết nối máy chủ AI để render cử động 3D...", expanded=True)
-            try:
-                with tempfile.TemporaryDirectory() as td:
-                    input_img_path = os.path.join(td, "source_face.jpg")
-                    pil_img = Image.open(face_motion_file).convert("RGB")
-                    pil_img.save(input_img_path, format="JPEG", quality=95)
+            with st.spinner("Đang tối ưu ảnh và tạo kịch bản vật lý..."):
+                img_raw = Image.open(squish_file).convert("RGB")
+                target_size = (720, 1280)
+                img_opt = img_raw.resize(target_size, Image.Resampling.LANCZOS)
+                
+                buf_opt = io.BytesIO()
+                img_opt.save(buf_opt, format="JPEG", quality=95)
+                st.session_state['squish_img_bytes'] = buf_opt.getvalue()
 
-                    status.write("🌐 Đang gửi ảnh sang máy chủ LivePortrait AI...")
-                    video_output_path = None
+                # Prompt chuẩn vật lý
+                if "nhăn mặt dỗi" in squish_type:
+                    p_text = "A realistic human hand reaches from the side and gently squishes the character's chubby cheek, causing the face to puff up realistically. The hand releases, and the character makes a cute angry, pouting facial expression with furrowed eyebrows, 3D hyper-realistic physics interaction, smooth 4k."
+                elif "cười tít mắt" in squish_type:
+                    p_text = "Two human hands gently pinch and pull both cheeks adorably. The hands release, and the character bursts into a cute joyful laughing smile, sparkling eyes, ultra-realistic smooth 3D motion."
+                else:
+                    p_text = "A finger pokes into the character's cheek, causing the entire face to inflate and puff up like a balloon, funny hilarious cartoonish physics, 3D render."
 
-                    try:
-                        from gradio_client import Client, handle_file
-                        client_lp = Client("KwaiVGI/LivePortrait")
-                        status.write("🧠 AI đang phân tích 68 điểm cơ mặt và render từng khung hình...")
-                        result = client_lp.predict(
-                            source_image=handle_file(input_img_path),
-                            api_name="/gpu"
-                        )
-                        if isinstance(result, tuple) or isinstance(result, list):
-                            video_output_path = result[0]
-                        elif isinstance(result, str):
-                            video_output_path = result
-                    except Exception:
-                        status.write("⚠️ Máy chủ chính bận, chuyển sang chế độ đồ họa nội bộ...")
+                st.session_state['squish_prompt'] = p_text
+                st.success("✅ Đã chuẩn hóa ảnh và tạo lệnh chuyển động vật lý!")
 
-                    if not video_output_path or not os.path.exists(video_output_path):
-                        status.write("🎬 Đang kết xuất video chuyển động mượt mà...")
-                        target_w, target_h = 540, 960
-                        im_resized = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                        duration = 5.0
+    if 'squish_img_bytes' in st.session_state:
+        st.markdown("---")
+        st.markdown("### 🎬 Lựa Chọn Phương Thức Xuất Video Miễn Phí:")
 
-                        def make_face_motion_frame(t):
-                            tilt = int(14 * np.sin(2 * np.pi * 0.8 * t))
-                            nod = int(10 * np.cos(2 * np.pi * 1.6 * t))
-                            scale = 1.0 + 0.05 * np.sin(2 * np.pi * 0.8 * t)
-                            nw, nh = int(target_w * scale), int(target_h * scale)
-                            im_sc = im_resized.resize((nw, nh), Image.Resampling.BILINEAR)
-                            xc, yc = (nw - target_w) // 2, (nh - target_h) // 2
-                            cropped = im_sc.crop((xc, yc, xc + target_w, yc + target_h))
-                            return np.roll(np.array(cropped), shift=(nod, tilt), axis=(0, 1))
+        tab_m1, tab_m2 = st.tabs(["✨ Cách 1: Xuất Bằng Kling AI (Nhanh - Miễn Phí)", "⚡ Cách 2: Chạy Google Colab GPU (Tự Động)"])
 
-                        clip = VideoClip(make_face_motion_frame, duration=duration)
-                        fallback_path = os.path.join(td, "motion_result.mp4")
-                        clip.write_videofile(fallback_path, fps=24, codec="libx264", audio=False, logger=None)
-                        video_output_path = fallback_path
-                        clip.close()
+        with tab_m1:
+            st.info("""
+            **3 Bước đơn giản để nhận video bóp má chuẩn 100%:**
+            1. Bấm nút **'Tải Ảnh Đã Tối Ưu'** bên dưới về máy.
+            2. Sao chép câu lệnh Prompt có sẵn.
+            3. Bấm nút **'Mở Kling AI'** $\rightarrow$ Dán ảnh và Prompt vào để nhận video hoàn chỉnh!
+            """)
 
-                    with open(video_output_path, "rb") as vf:
-                        st.session_state['liveportrait_video'] = vf.read()
+            col_sq1, col_sq2 = st.columns(2)
+            with col_sq1:
+                st.download_button(
+                    "📥 1. Tải Ảnh Đã Tối Ưu Về Máy", 
+                    data=st.session_state['squish_img_bytes'], 
+                    file_name="Squish_Target.jpg", 
+                    mime="image/jpeg", 
+                    use_container_width=True
+                )
+            with col_sq2:
+                st.link_button("🌐 3. Mở Kling AI Miễn Phí", "https://klingai.com", use_container_width=True)
 
-                    status.update(label="✅ Đã tạo video cử động 3D thành công!", state="complete", expanded=False)
-                    st.success("🎉 Video biểu cảm 3D của bạn đã hoàn thành!")
+            st.text_area("📋 2. Câu lệnh Prompt (Đã tối ưu sẵn - Chỉ cần Copy):", st.session_state.get('squish_prompt', ''), height=90)
 
-            except Exception as e:
-                status.update(label="❌ Có lỗi xảy ra!", state="error")
-                st.error(f"Chi tiết: {str(e)}")
-
-    if 'liveportrait_video' in st.session_state:
-        st.video(st.session_state['liveportrait_video'])
-        st.download_button(
-            "📥 Tải Video Chuyển Động (.mp4)",
-            data=st.session_state['liveportrait_video'],
-            file_name="AI_Face_Motion_3D.mp4",
-            mime="video/mp4",
-            use_container_width=True
-        )
+        with tab_m2:
+            st.markdown("""
+            **Chạy mô hình LivePortrait / SVD miễn phí trên GPU của Google:**
+            * Google cấp miễn phí card đồ họa GPU T4 trên nền tảng đám mây.
+            * Bạn có thể mở trực tiếp Notebook bên dưới để xử lý video mà không mất phí.
+            """)
+            st.link_button("🚀 Mở Google Colab Chạy GPU Miễn Phí", "https://colab.research.google.com/github/KwaiVGI/LivePortrait/blob/main/LivePortrait.ipynb", use_container_width=True)
 
 # ==========================================================
 # 2. VŨ TRỤ BIẾN HÌNH AI
@@ -318,7 +308,7 @@ elif feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime..
                                 scale = 1.0 + 0.06 * ((t - 3.5) / 2.5)
                                 new_w, new_h = int(target_w * scale), int(target_h * scale)
                                 im_z = result_pil_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
-                                xc, yc = (new_w - target_w) // 2, (nh - target_h) // 2 if 'nh' in locals() else (new_h - target_h) // 2
+                                xc, yc = (new_w - target_w) // 2, (new_h - target_h) // 2
                                 return np.array(im_z.crop((xc, yc, xc + target_w, yc + target_h)))
 
                         clip = VideoClip(make_transformation_frame, duration=total_duration)
