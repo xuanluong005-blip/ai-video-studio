@@ -27,12 +27,12 @@ except Exception:
 
 st.set_page_config(page_title="AI Studio Ultimate", page_icon="✨", layout="centered")
 
-# Hàm gọi Gemini với danh sách model thế hệ mới nhất
-def generate_content_with_fallback(client, contents, primary_model="gemini-3-flash"):
+# Hàm gọi Gemini với model chuẩn gemini-3.6-flash
+def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-flash"):
     candidate_models = [
         primary_model,
         "gemini-3.1-pro-preview",
-        "gemini-2.5-flash"
+        "gemini-3-flash"
     ]
     
     last_err = None
@@ -152,7 +152,7 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
                     analysis_prompt
                 ]
                 
-                person_desc_text = generate_content_with_fallback(client, contents_payload)
+                person_desc_text = generate_content_with_fallback(client, contents_payload, primary_model="gemini-3.6-flash")
                 person_desc = person_desc_text.strip().replace("\n", " ")
 
                 status.write("🎨 Đang kết hợp gương mặt gốc với hiệu ứng biến hình...")
@@ -258,7 +258,7 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels)":
                 client = genai.Client(api_key=api_key)
                 prompt = f"Hãy viết kịch bản video ngắn TikTok về chủ đề '{topic}'. Gồm đúng {len(uploaded_files)} câu súc tích tương ứng {len(uploaded_files)} ảnh. Mỗi câu 1 dòng, không đánh số."
                 
-                res_text = generate_content_with_fallback(client, prompt)
+                res_text = generate_content_with_fallback(client, prompt, primary_model="gemini-3.6-flash")
                 lines = [l.strip() for l in res_text.strip().split("\n") if l.strip()]
 
                 with tempfile.TemporaryDirectory() as td:
@@ -414,7 +414,7 @@ elif feature_choice == "🎵 Sáng Tác Nhạc & Lời":
                 try:
                     client = genai.Client(api_key=api_key)
                     prompt = f"Sáng tác bài hát tiếng Việt phong cách {song_genre} về: '{song_topic}'. Bố cục chuẩn: [Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Outro]. Lời cảm xúc, vần điệu bắt tai."
-                    res_lyrics = generate_content_with_fallback(client, prompt)
+                    res_lyrics = generate_content_with_fallback(client, prompt, primary_model="gemini-3.6-flash")
                     st.session_state['song_lyrics'] = res_lyrics
                 except Exception as e:
                     st.error(f"Lỗi: {str(e)}")
