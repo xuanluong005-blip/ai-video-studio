@@ -27,13 +27,12 @@ except Exception:
 
 st.set_page_config(page_title="AI Studio Ultimate", page_icon="✨", layout="centered")
 
-# Hàm gọi Gemini với cơ chế tự động thử lại và đổi mô hình dự phòng
-def generate_content_with_fallback(client, contents, primary_model="gemini-2.5-flash"):
+# Hàm gọi Gemini với danh sách model thế hệ mới nhất
+def generate_content_with_fallback(client, contents, primary_model="gemini-3-flash"):
     candidate_models = [
         primary_model,
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-2.5-pro"
+        "gemini-3.1-pro-preview",
+        "gemini-2.5-flash"
     ]
     
     last_err = None
@@ -48,7 +47,7 @@ def generate_content_with_fallback(client, contents, primary_model="gemini-2.5-f
                     return response.text
             except Exception as e:
                 last_err = e
-                time.sleep(1.5)
+                time.sleep(1.2)
     raise last_err
 
 BANNER_URLS = {
