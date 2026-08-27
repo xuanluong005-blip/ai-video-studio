@@ -3,6 +3,8 @@ import os
 import io
 import asyncio
 import tempfile
+import urllib.parse
+import requests
 import numpy as np
 from google import genai
 from moviepy import (
@@ -14,22 +16,25 @@ from moviepy import (
 import edge_tts
 from PIL import Image
 
+# Hỗ trợ đọc mọi định dạng ảnh từ iPhone (HEIC) và WebP
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except:
+    pass
+
 st.set_page_config(page_title="AI Studio Ultimate", page_icon="⚡", layout="centered")
 st.title("⚡ AI Studio Ultimate")
 st.caption("Studio Đa Năng: Video Ngắn (9:16) • Sáng Tác Nhạc • Hóa Thân Songoku AI")
 
-# =======================================================
-# TỰ ĐỘNG NHẬN DIỆN GEMINI API KEY ĐÃ LƯU TRÊN HỆ THỐNG
-# =======================================================
+# Tự động nhận diện Key từ Secrets hoặc cho phép nhập
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
-
 if saved_api_key:
     api_key = saved_api_key
     st.success("✅ Đã tự động kết nối Gemini API Key của bạn!")
 else:
     api_key = st.text_input("🔑 Gemini API Key (*):", type="password", placeholder="Nhập Gemini API Key của bạn...")
 
-# TẠO 3 TAB CHỨC NĂNG
 tab1, tab2, tab3 = st.tabs(["🎬 Sáng Tạo Video (9:16)", "🎵 Sáng Tác Nhạc & Lời", "⚡ Hóa Thân Songoku"])
 
 # ==========================================
@@ -39,7 +44,7 @@ with tab1:
     st.subheader("1. Chọn hình ảnh minh họa")
     uploaded_files = st.file_uploader(
         "📸 Chọn ảnh từ máy / điện thoại:", 
-        type=["jpg", "jpeg", "png"], 
+        type=["jpg", "jpeg", "png", "heic", "webp"], 
         accept_multiple_files=True,
         key="uploader_vid"
     )
@@ -60,7 +65,7 @@ with tab1:
 
     if st.button("🚀 BẮT ĐẦU TẠO VIDEO", use_container_width=True, key="btn_create_vid"):
         if not api_key or not uploaded_files or not topic:
-            st.error("⚠️ Vui lòng đảm bảo đã có API Key, ảnh minh họa và chủ đề video!")
+            st.error("⚠️ Vui lòng nhập đầy đủ API Key, ảnh và chủ đề video!")
         else:
             status = st.status("Đang dựng video...", expanded=True)
             try:
@@ -82,10 +87,7 @@ with tab1:
                         asyncio.run(create_voice(txt, voice_option, a_path))
 
                         img_path = os.path.join(td, f"img_{idx}.jpg")
-                        with open(img_path, "wb") as img_file:
-                            img_file.write(f.read())
-
-                        im = Image.open(img_path).convert("RGB").resize(target_size, Image.Resampling.LANCZOS)
+                        im = Image.open(f).convert("RGB").resize(target_size, Image.Resampling.LANCZOS)
                         im.save(img_path)
 
                         ac = AudioFileClip(a_path)
@@ -122,7 +124,7 @@ with tab2:
 
     if st.button("✍️ SÁNG TÁC LỜI BÀI HÁT", use_container_width=True, key="btn_lyrics"):
         if not api_key or not song_topic:
-            st.error("⚠️ Vui lòng đảm bảo đã có API Key và chủ đề bài hát!")
+            st.error("⚠️ Vui lòng nhập API Key và chủ đề bài hát!")
         else:
             with st.spinner("AI đang sáng tác lời và gieo vần..."):
                 try:
@@ -138,7 +140,7 @@ with tab2:
         st.info("💡 **Gợi ý:** Bạn copy lời bài hát trên dán vào web **Suno.com** để tạo file MP3 có ca sĩ hát miễn phí!")
 
     st.subheader("2. Ghép Ảnh & Nhạc thành Music Video")
-    mv_image = st.file_uploader("🖼️ Chọn ảnh bìa bài hát:", type=["jpg", "png"], key="mv_img_upload")
+    mv_image = st.file_uploader("🖼️ Chọn ảnh bìa bài hát:", type=["jpg", "jpeg", "png", "heic", "webp"], key="mv_img_upload")
     mv_audio = st.file_uploader("🎵 Tải lên file nhạc MP3 (Bài hát):", type=["mp3"], key="mv_audio_upload")
 
     if st.button("🎬 XUẤT MUSIC VIDEO", use_container_width=True, key="btn_mv_render"):
@@ -151,11 +153,10 @@ with tab2:
                     audio_path = os.path.join(td, "song.mp3")
                     out_mv = os.path.join(td, "mv.mp4")
 
-                    with open(img_path, "wb") as f: f.write(mv_image.read())
-                    with open(audio_path, "wb") as f: f.write(mv_audio.read())
-
-                    im = Image.open(img_path).convert("RGB").resize((1080, 1920), Image.Resampling.LANCZOS)
+                    im = Image.open(mv_image).convert("RGB").resize((1080, 1920), Image.Resampling.LANCZOS)
                     im.save(img_path)
+
+                    with open(audio_path, "wb") as f: f.write(mv_audio.read())
 
                     ac = AudioFileClip(audio_path)
                     ic = ImageClip(img_path).with_duration(ac.duration).with_audio(ac)
@@ -172,27 +173,27 @@ with tab2:
                     st.download_button("📥 Tải Music Video Về Máy", mv_bytes, "Music_Video.mp4", "video/mp4", use_container_width=True)
 
 # ==========================================
-# TAB 3: HÓA THÂN THÀNH SONGOKU (AI COSPLAY)
+# TAB 3: HÓA THÂN THÀNH SONGOKU (MIỄN PHÍ 100%)
 # ==========================================
 with tab3:
     st.subheader("⚡ Biến Ảnh Người Thật Thành Son Goku / Super Saiyan")
-    goku_img_file = st.file_uploader("📸 Tải lên ảnh chân dung hoặc toàn thân của bạn:", type=["jpg", "jpeg", "png"], key="goku_uploader")
+    goku_img_file = st.file_uploader("📸 Tải lên ảnh chân dung của bạn:", type=["jpg", "jpeg", "png", "heic", "webp"], key="goku_uploader")
     
     col_gk1, col_gk2 = st.columns(2)
     with col_gk1:
         saiyan_form = st.selectbox(
             "🔥 Chọn cấp độ biến hình (Form):",
             [
-                "Super Saiyan Cấp 1 (Tóc vàng kim rực lửa)", 
+                "Super Saiyan Cấp 1 (Tóc vàng rực lửa)", 
                 "Super Saiyan Blue (Tóc xanh dương thần thánh)", 
-                "Bản Năng Vô Cực - Ultra Instinct (Tóc bạc, hào quang trắng)",
-                "Son Goku Cơ Bản (Tóc đen nguyên bản, áo cam xanh)"
+                "Bản Năng Vô Cực - Ultra Instinct (Tóc bạc)",
+                "Son Goku Cơ Bản (Tóc đen nguyên bản)"
             ]
         )
     with col_gk2:
         art_style = st.selectbox(
             "🎨 Phong cách hình ảnh:",
-            ["Điện Ảnh Thực Tế (Photorealistic / 3D Live-Action)", "Anime Dragon Ball Cổ Điển (Akira Toriyama 90s)", "Manga Đen Trắng Siêu Nét"]
+            ["Điện Ảnh Thực Tế (3D Cinematic Live-Action)", "Anime Dragon Ball Cổ Điển (90s)", "Manga Siêu Nét"]
         )
 
     if st.button("⚡ BIẾN HÌNH THÀNH SONGOKU NGAY", use_container_width=True, key="btn_goku"):
@@ -205,71 +206,74 @@ with tab3:
             try:
                 client = genai.Client(api_key=api_key)
                 
-                status.write("👁️ AI đang phân tích khuôn mặt và đặc điểm ảnh gốc...")
-                user_image = Image.open(goku_img_file)
+                status.write("👁️ Gemini đang quét khuôn mặt và tư thế...")
+                user_image = Image.open(goku_img_file).convert("RGB")
                 
-                analysis_prompt = (
-                    "Hãy mô tả chi tiết người trong bức ảnh này (giới tính, góc mặt, biểu cảm khuôn mặt, "
-                    "hướng nhìn, tư thế cơ thể) bằng tiếng Anh để làm prompt tái tạo nhân vật."
-                )
+                # Chuyển ảnh sang dạng Bytes để gửi Gemini phân tích
+                img_byte_arr = io.BytesIO()
+                user_image.save(img_byte_arr, format='JPEG')
+                img_bytes = img_byte_arr.getvalue()
+
+                analysis_prompt = "Describe this person in English (gender, facial features, hair, eye angle, posture) concisely in 30 words."
+                
+                from google.genai import types
                 analysis_res = client.models.generate_content(
                     model="gemini-3.6-flash",
-                    contents=[analysis_prompt, user_image]
+                    contents=[
+                        types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
+                        analysis_prompt
+                    ]
                 )
-                person_desc = analysis_res.text.strip()
+                person_desc = analysis_res.text.strip().replace("\n", " ")
 
-                status.write("🔥 Đang tích tụ Ki và triệu hồi hào quang Saiyan...")
-                
-                form_prompt_map = {
-                    "Super Saiyan Cấp 1 (Tóc vàng kim rực lửa)": "Super Saiyan with glowing spiky golden yellow hair, vibrant golden energy aura, teal eyes, wearing iconic orange and dark blue martial arts gi with blue wristbands.",
-                    "Super Saiyan Blue (Tóc xanh dương thần thánh)": "Super Saiyan God Super Saiyan (SSGSS Blue), glowing bright cyan blue spiky hair, divine blue fire energy aura, blue eyes, wearing orange martial arts gi.",
-                    "Bản Năng Vô Cực - Ultra Instinct (Tóc bạc, hào quang trắng)": "Mastered Ultra Instinct form, glowing silver-white spiky hair, silver eyes, divine celestial galaxy aura, intense calm expression, shredded orange gi.",
-                    "Son Goku Cơ Bản (Tóc đen nguyên bản, áo cam xanh)": "Base form Son Goku, iconic black spiky anime hair, confident smirk, wearing classic orange and navy blue Turtle School gi."
-                }
-                
-                style_prompt_map = {
-                    "Điện Ảnh Thực Tế (Photorealistic / 3D Live-Action)": "Cinematic live-action movie still, 8k resolution, photorealistic, intricate fabric texture, hyper-detailed lighting and sparks.",
-                    "Anime Dragon Ball Cổ Điển (Akira Toriyama 90s)": "Iconic 1990s Dragon Ball Z anime art style, Akira Toriyama aesthetic, cel-shaded, sharp line art, vibrant vintage colors.",
-                    "Manga Đen Trắng Siêu Nét": "High-contrast Japanese manga illustration, dynamic speed lines, screentone shading, ultra detailed ink drawing."
+                status.write("🔥 Đang tụ năng lượng Ki và vẽ ảnh...")
+                form_dict = {
+                    "Super Saiyan Cấp 1 (Tóc vàng rực lửa)": "Super Saiyan with glowing spiky yellow hair, intense golden aura, teal eyes, wearing orange Turtle School gi",
+                    "Super Saiyan Blue (Tóc xanh dương thần thánh)": "Super Saiyan Blue SSGSS, glowing bright cyan blue spiky hair, divine blue fire aura, orange gi",
+                    "Bản Năng Vô Cực - Ultra Instinct (Tóc bạc)": "Mastered Ultra Instinct, glowing silver white spiky hair, divine celestial aura, torn orange gi",
+                    "Son Goku Cơ Bản (Tóc đen nguyên bản)": "Base form Son Goku, iconic black spiky hair, classic orange and blue martial arts gi"
                 }
 
-                chosen_form = form_prompt_map[saiyan_form]
-                chosen_style = style_prompt_map[art_style]
+                style_dict = {
+                    "Điện Ảnh Thực Tế (3D Cinematic Live-Action)": "cinematic 8k movie still, photorealistic, intricate textures, realistic lighting, unreal engine 5",
+                    "Anime Dragon Ball Cổ Điển (90s)": "classic 1990s Dragon Ball Z anime style, Akira Toriyama aesthetic, cel shaded, vintage colors",
+                    "Manga Siêu Nét": "high detail dynamic Japanese manga drawing, screentone shading, sharp ink lineart"
+                }
 
-                final_image_prompt = (
-                    f"A transformation of this person: {person_desc}. "
-                    f"Transformed into Son Goku character from Dragon Ball: {chosen_form}. "
-                    f"Art style: {chosen_style}. Masterpiece, dynamic fighting stance, epic composition."
-                )
+                chosen_f = form_dict[saiyan_form]
+                chosen_s = style_dict[art_style]
 
-                status.write("🎨 Đang kết xuất bức ảnh Son Goku hoàn chỉnh...")
-                gen_result = client.models.generate_images(
-                    model="imagen-3.0-generate-002",
-                    prompt=final_image_prompt,
-                    config=dict(number_of_images=1, aspect_ratio="9:16")
-                )
+                prompt_draw = f"Portrait transformation of {person_desc} into Son Goku character from Dragon Ball, {chosen_f}, {chosen_s}, masterpiece, highly detailed, centered"
+                encoded_prompt = urllib.parse.quote(prompt_draw)
 
-                for generated_image in gen_result.generated_images:
-                    result_img = Image.open(io.BytesIO(generated_image.image.image_bytes))
+                # Sử dụng Pollinations AI (Miễn phí 100%, render ảnh 9:16 sắc nét)
+                seed_num = np.random.randint(1000, 999999)
+                image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&model=flux&seed={seed_num}&nologo=true"
+
+                res = requests.get(image_url, timeout=30)
+                if res.status_code == 200:
+                    result_img = Image.open(io.BytesIO(res.content))
                     
                     status.update(label="✅ Biến hình thành công!", state="complete", expanded=False)
-                    st.success("🎉 Bức ảnh Son Goku của bạn đã được tạo thành công!")
-                    
+                    st.success("🎉 Bạn đã hóa thân thành Son Goku thành công!")
+
                     col_show1, col_show2 = st.columns(2)
                     with col_show1:
-                        st.image(user_image, caption="Ảnh Gốc Của Bạn", use_container_width=True)
+                        st.image(user_image, caption="Ảnh Gốc", use_container_width=True)
                     with col_show2:
                         st.image(result_img, caption="Phiên Bản Son Goku AI", use_container_width=True)
 
                     buf = io.BytesIO()
                     result_img.save(buf, format="JPEG", quality=95)
                     st.download_button(
-                        label="📥 Tải Ảnh Son Goku Siêu Nét Về Máy",
+                        label="📥 Tải Ảnh Son Goku Về Điện Thoại",
                         data=buf.getvalue(),
-                        file_name="Songoku_AI_Cosplay.jpg",
+                        file_name="Songoku_AI.jpg",
                         mime="image/jpeg",
                         use_container_width=True
                     )
+                else:
+                    raise Exception("Không thể tải ảnh từ máy chủ AI.")
 
             except Exception as e:
                 status.update(label="❌ Có lỗi xảy ra!", state="error")
