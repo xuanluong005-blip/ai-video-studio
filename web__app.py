@@ -24,9 +24,24 @@ except:
     pass
 
 st.set_page_config(page_title="AI Studio Ultimate", page_icon="✨", layout="centered")
-st.title("✨ AI Studio Ultimate")
 
-# Tự động nhận diện API Key
+# ==========================================================
+# ẢNH ĐẠI DIỆN VÀ BANNER CHỨC NĂNG SỐNG ĐỘNG (HD)
+# ==========================================================
+BANNER_URLS = {
+    "HERO": "https://image.pollinations.ai/prompt/Futuristic%20creative%20AI%20video%20and%20music%20production%20studio,%20glowing%20neon%20holograms,%20Super%20Saiyan%20energy%20and%20dancing%20characters,%20ultra%20vibrant%203D%20cinematic%20digital%20art,%208k%20masterpiece?width=1200&height=400&model=flux&seed=777&nologo=true",
+    "TRANSFORM": "https://image.pollinations.ai/prompt/Epic%20character%20transformation,%20split%20view%20between%20Super%20Saiyan%20golden%20hair%20and%20giant%20muscular%20hero,%20energetic%20lighting%20sparks,%20cinematic%203D%20render,%208k?width=1080&height=350&model=flux&seed=888&nologo=true",
+    "VIDEO": "https://image.pollinations.ai/prompt/Social%20media%20short%20video%20creator%20concept,%209:16%20smartphone%20screen%20floating%20with%20cinematic%20scenes,%20subtitles,%20vibrant%20colors,%203D%20render?width=1080&height=350&model=flux&seed=999&nologo=true",
+    "MEME": "https://image.pollinations.ai/prompt/Funny%20chubby%20cute%20baby%20wearing%20sunglasses%20dancing%20hip-hop%20on%20stage%20with%20colorful%20lights,%20joyful%203D%20animation%20style,%20high%20detail?width=1080&height=350&model=flux&seed=555&nologo=true",
+    "MUSIC": "https://image.pollinations.ai/prompt/Neon%20glowing%20music%20studio,%20floating%20musical%20notes,%20soundwaves,%20headphones,%20cyberpunk%20aesthetic,%20ultra%20detailed%203D?width=1080&height=350&model=flux&seed=333&nologo=true"
+}
+
+# 1. Hiển thị Banner mở đầu
+st.image(BANNER_URLS["HERO"], use_container_width=True)
+st.title("✨ AI Studio Ultimate")
+st.caption("Nền tảng sáng tạo đa phương tiện: Video TikTok • Biến Hình AI • Nhảy Meme • Sáng Tác Nhạc")
+
+# 2. Tự động kết nối Key
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
     api_key = saved_api_key
@@ -34,7 +49,7 @@ if saved_api_key:
 else:
     api_key = st.text_input("🔑 Gemini API Key (*):", type="password", placeholder="Nhập Gemini API Key của bạn...")
 
-# MENU LỰA CHỌN CHỨC NĂNG CHÍNH
+# 3. Menu chọn chức năng
 st.markdown("### 🎯 Chọn Chức Năng Bạn Muốn Dùng:")
 feature_choice = st.radio(
     "Danh sách tính năng:",
@@ -54,6 +69,7 @@ st.markdown("---")
 # 1. VŨ TRỤ BIẾN HÌNH AI ĐA DẠNG
 # ==========================================================
 if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)":
+    st.image(BANNER_URLS["TRANSFORM"], caption="⚡ Vũ Trụ Biến Hình AI: Phình To, Saiyan, Anime, Em Bé...", use_container_width=True)
     st.subheader("🎭 Vũ Trụ Biến Hình AI")
     st.caption("Tải 1 ảnh chân dung và chọn phong cách biến hình yêu thích!")
 
@@ -120,7 +136,6 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
 
                 status.write("🎨 Đang vẽ ảnh theo hiệu ứng bạn chọn...")
 
-                # Bản đồ hiệu ứng biến hình
                 effect_prompt_map = {
                     "💪 Phình To Cơ Bắp (Lực Sĩ Thể Hình Khổng Lồ)": "extremely muscular bodybuilder transformation, massive bulging biceps and shoulders, hyper defined veins, heroic power pose, flexing muscles",
                     "🎈 Phình To Tròn Bụng (Mập Mạp Meme Đáng Yêu)": "funny chubby transformation, round puffy chubby cheeks, oversized cute belly, hilarious exaggerated round proportions",
@@ -164,14 +179,13 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
                 status.update(label="❌ Có lỗi xảy ra!", state="error")
                 st.error(f"Chi tiết lỗi: {str(e)}")
 
-    # Hiển thị ảnh so sánh
     if 'trans_result_bytes' in st.session_state and 'trans_orig_bytes' in st.session_state:
         orig_pil = Image.open(io.BytesIO(st.session_state['trans_orig_bytes']))
         result_pil = Image.open(io.BytesIO(st.session_state['trans_result_bytes']))
 
         col_show1, col_show2 = st.columns(2)
         with col_show1:
-            st.image(orig_pil, caption="Ảnh Gốc Của Bạn", use_container_width=True)
+            st.image(orig_pil, caption="Ảnh Gốc", use_container_width=True)
         with col_show2:
             st.image(result_pil, caption="Ảnh Sau Biến Hình", use_container_width=True)
 
@@ -187,6 +201,7 @@ if feature_choice == "🎭 Vũ Trụ Biến Hình AI (Phình to, Goku, Anime...)
 # 2. TẠO VIDEO NGẮN TIKTOK / REELS
 # ==========================================================
 elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels)":
+    st.image(BANNER_URLS["VIDEO"], caption="🎬 Xưởng Tạo Video TikTok / Reels Tự Động", use_container_width=True)
     st.subheader("🎬 Xưởng Tạo Video Ngắn 9:16 Tự Động")
     uploaded_files = st.file_uploader(
         "📸 Chọn các bức ảnh minh họa:", 
@@ -245,172 +260,3 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels)":
                     final_video.write_videofile(out_video, fps=24, codec="libx264", audio_codec="aac", logger=None)
 
                     with open(out_video, "rb") as out_f:
-                        video_bytes = out_f.read()
-
-                    final_video.close()
-                    for sc in scene_clips: sc.close()
-
-                    status.update(label="✅ Đã hoàn tất!", state="complete", expanded=False)
-                    st.success("🎉 Video của bạn đã sẵn sàng!")
-                    st.video(video_bytes)
-                    st.download_button("📥 Tải Video Về Máy", video_bytes, "video_9_16.mp4", "video/mp4", use_container_width=True)
-
-            except Exception as e:
-                status.update(label="❌ Lỗi xử lý!", state="error")
-                st.error(f"Chi tiết: {str(e)}")
-
-# ==========================================================
-# 3. VIDEO NHẢY & BIỂU CẢM MEME
-# ==========================================================
-elif feature_choice == "🕺 Video Nhảy & Biểu Cảm Meme":
-    st.subheader("🕺 Biến Ảnh Thành Video Nhảy & Biểu Cảm Meme")
-    st.caption("Tải ảnh em bé, thú cưng hoặc người thân để tạo video nhún nhảy theo nhạc vui nhộn!")
-
-    meme_img_file = st.file_uploader(
-        "📸 Tải ảnh chân dung hoặc toàn thân:", 
-        type=["jpg", "jpeg", "png", "heic", "webp"], 
-        key="meme_uploader"
-    )
-
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        dance_style = st.selectbox(
-            "💃 Chọn điệu nhảy / Động tác:",
-            [
-                "Nhún Nhảy Meme Đáng Yêu (Chubby Baby Dance)",
-                "Lắc Đầu Theo Nhịp Nhạc (Head Bobbing Rhythm)",
-                "Nhảy Hip-Hop Cực Ngầu (Street Dance Groove)",
-                "Biểu Cảm Hài Hước Cười Mỉm (Funny Smirk & Wink)"
-            ]
-        )
-    with col_m2:
-        meme_music = st.selectbox(
-            "🎵 Nhạc nền Meme vui nhộn:",
-            ["Nhạc Vui Nhộn / Hài Hước", "Nhạc Pop Năng Động", "Không dùng nhạc"]
-        )
-
-    MEME_AUDIO_URLS = {
-        "Nhạc Vui Nhộn / Hài Hước": "https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f792cb.mp3?filename=funny-kids-123497.mp3",
-        "Nhạc Pop Năng Động": "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=upbeat-energetic-pop-109038.mp3"
-    }
-
-    if st.button("🚀 TẠO VIDEO NHẢY MEME NGAY", use_container_width=True, key="btn_create_meme"):
-        if not meme_img_file:
-            st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung hoặc em bé!")
-        else:
-            status = st.status("🕺 Đang phân tích và tạo chuyển động nhún nhảy...", expanded=True)
-            try:
-                user_meme_img = Image.open(meme_img_file).convert("RGB")
-                status.write("🎬 Đang tổng hợp hiệu ứng nhún nhảy theo nhịp nhạc...")
-                with tempfile.TemporaryDirectory() as td:
-                    target_w, target_h = 540, 960
-                    meme_resized = user_meme_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                    duration_dance = 6.0
-
-                    def make_dance_frame(t):
-                        bounce_y = int(18 * np.sin(2 * np.pi * 2.0 * t))
-                        tilt_x = int(12 * np.cos(2 * np.pi * 1.0 * t))
-                        
-                        scale = 1.0 + 0.04 * np.sin(2 * np.pi * 2.0 * t)
-                        nw, nh = int(target_w * scale), int(target_h * scale)
-                        im_b = meme_resized.resize((nw, nh), Image.Resampling.BILINEAR)
-                        xc, yc = (nw - target_w) // 2, (nh - target_h) // 2
-                        cropped = im_b.crop((xc, yc, xc + target_w, yc + target_h))
-                        frame_np = np.array(cropped)
-                        
-                        shifted = np.roll(frame_np, shift=(bounce_y, tilt_x), axis=(0, 1))
-                        return shifted
-
-                    dance_clip = VideoClip(make_dance_frame, duration=duration_dance)
-
-                    if meme_music != "Không dùng nhạc" and meme_music in MEME_AUDIO_URLS:
-                        status.write("🎵 Đang ghép nhạc nền vui nhộn...")
-                        bg_p = os.path.join(td, "meme_music.mp3")
-                        r_audio = requests.get(MEME_AUDIO_URLS[meme_music], timeout=15)
-                        with open(bg_p, "wb") as af:
-                            af.write(r_audio.content)
-                        audio_c = AudioFileClip(bg_p).with_duration(duration_dance)
-                        dance_clip = dance_clip.with_audio(audio_c)
-
-                    out_dance_path = os.path.join(td, "meme_dance.mp4")
-                    dance_clip.write_videofile(out_dance_path, fps=24, codec="libx264", audio_codec="aac" if meme_music != "Không dùng nhạc" else None, logger=None)
-
-                    with open(out_dance_path, "rb") as vf:
-                        st.session_state['meme_video_bytes'] = vf.read()
-
-                    dance_clip.close()
-
-                status.update(label="✅ Đã tạo video nhảy Meme thành công!", state="complete", expanded=False)
-                st.success("🎉 Video nhún nhảy vui nhộn của bạn đã hoàn tất!")
-
-            except Exception as e:
-                status.update(label="❌ Có lỗi xảy ra!", state="error")
-                st.error(f"Chi tiết lỗi: {str(e)}")
-
-    if 'meme_video_bytes' in st.session_state:
-        st.video(st.session_state['meme_video_bytes'])
-        st.download_button(
-            "📥 Tải Video Nhảy Meme (.mp4)",
-            data=st.session_state['meme_video_bytes'],
-            file_name="AI_Meme_Dance.mp4",
-            mime="video/mp4",
-            use_container_width=True
-        )
-
-# ==========================================================
-# 4. SÁNG TÁC NHẠC & LỜI
-# ==========================================================
-elif feature_choice == "🎵 Sáng Tác Nhạc & Lời":
-    st.subheader("1. Sáng tác lời bài hát (Lyrics AI)")
-    song_topic = st.text_input("💡 Chủ đề ca khúc:", placeholder="VD: Tình yêu tuổi học trò, Nhạc truyền động lực...")
-    song_genre = st.selectbox("🎸 Thể loại âm nhạc:", ["Pop Ballad", "Rap / Hip-Hop", "Rock", "Lofi Chill", "Nhạc Quê Hương"])
-
-    if st.button("✍️ SÁNG TÁC LỜI BÀI HÁT", use_container_width=True, key="btn_lyrics"):
-        if not api_key or not song_topic:
-            st.error("⚠️ Vui lòng nhập API Key và chủ đề bài hát!")
-        else:
-            with st.spinner("AI đang sáng tác lời và gieo vần..."):
-                try:
-                    client = genai.Client(api_key=api_key)
-                    prompt = f"Sáng tác bài hát tiếng Việt phong cách {song_genre} về: '{song_topic}'. Bố cục chuẩn: [Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Outro]. Lời cảm xúc, vần điệu bắt tai."
-                    res = client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
-                    st.session_state['song_lyrics'] = res.text
-                except Exception as e:
-                    st.error(f"Lỗi: {str(e)}")
-
-    if 'song_lyrics' in st.session_state:
-        st.text_area("📝 Lời bài hát đã tạo:", st.session_state['song_lyrics'], height=250)
-        st.info("💡 Bạn copy lời bài hát trên dán vào **Suno.com** để tạo file MP3 có ca sĩ hát miễn phí!")
-
-    st.subheader("2. Ghép Ảnh & Nhạc thành Music Video")
-    mv_image = st.file_uploader("🖼️ Chọn ảnh bìa bài hát:", type=["jpg", "jpeg", "png", "heic", "webp"], key="mv_img_upload")
-    mv_audio = st.file_uploader("🎵 Tải lên file nhạc MP3 (Bài hát):", type=["mp3"], key="mv_audio_upload")
-
-    if st.button("🎬 XUẤT MUSIC VIDEO", use_container_width=True, key="btn_mv_render"):
-        if not mv_image or not mv_audio:
-            st.error("⚠️ Vui lòng tải đủ cả Ảnh bìa và File nhạc MP3!")
-        else:
-            with st.spinner("Đang ghép nhạc và ảnh thành video..."):
-                with tempfile.TemporaryDirectory() as td:
-                    img_path = os.path.join(td, "cover.jpg")
-                    audio_path = os.path.join(td, "song.mp3")
-                    out_mv = os.path.join(td, "mv.mp4")
-
-                    im = Image.open(mv_image).convert("RGB").resize((720, 1280), Image.Resampling.LANCZOS)
-                    im.save(img_path)
-
-                    with open(audio_path, "wb") as f: f.write(mv_audio.read())
-
-                    ac = AudioFileClip(audio_path)
-                    ic = ImageClip(img_path).with_duration(ac.duration).with_audio(ac)
-                    ic.write_videofile(out_mv, fps=24, codec="libx264", audio_codec="aac", logger=None)
-
-                    with open(out_mv, "rb") as f:
-                        mv_bytes = f.read()
-
-                    ic.close()
-                    ac.close()
-
-                    st.success("🎉 Music Video đã hoàn tất!")
-                    st.video(mv_bytes)
-                    st.download_button("📥 Tải Music Video Về Máy", mv_bytes, "Music_Video.mp4", "video/mp4", use_container_width=True)
