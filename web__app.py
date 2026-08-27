@@ -18,8 +18,16 @@ st.set_page_config(page_title="AI Studio Ultimate", page_icon="⚡", layout="cen
 st.title("⚡ AI Studio Ultimate")
 st.caption("Studio Đa Năng: Video Ngắn (9:16) • Sáng Tác Nhạc • Hóa Thân Songoku AI")
 
-# Nhập API Key chung ở đầu trang
-api_key = st.text_input("🔑 Gemini API Key (*):", type="password", placeholder="Nhập Gemini API Key của bạn...")
+# =======================================================
+# TỰ ĐỘNG NHẬN DIỆN GEMINI API KEY ĐÃ LƯU TRÊN HỆ THỐNG
+# =======================================================
+saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
+
+if saved_api_key:
+    api_key = saved_api_key
+    st.success("✅ Đã tự động kết nối Gemini API Key của bạn!")
+else:
+    api_key = st.text_input("🔑 Gemini API Key (*):", type="password", placeholder="Nhập Gemini API Key của bạn...")
 
 # TẠO 3 TAB CHỨC NĂNG
 tab1, tab2, tab3 = st.tabs(["🎬 Sáng Tạo Video (9:16)", "🎵 Sáng Tác Nhạc & Lời", "⚡ Hóa Thân Songoku"])
@@ -52,7 +60,7 @@ with tab1:
 
     if st.button("🚀 BẮT ĐẦU TẠO VIDEO", use_container_width=True, key="btn_create_vid"):
         if not api_key or not uploaded_files or not topic:
-            st.error("⚠️ Vui lòng nhập đầy đủ API Key, ảnh và chủ đề video!")
+            st.error("⚠️ Vui lòng đảm bảo đã có API Key, ảnh minh họa và chủ đề video!")
         else:
             status = st.status("Đang dựng video...", expanded=True)
             try:
@@ -114,7 +122,7 @@ with tab2:
 
     if st.button("✍️ SÁNG TÁC LỜI BÀI HÁT", use_container_width=True, key="btn_lyrics"):
         if not api_key or not song_topic:
-            st.error("⚠️ Vui lòng nhập API Key và chủ đề bài hát!")
+            st.error("⚠️ Vui lòng đảm bảo đã có API Key và chủ đề bài hát!")
         else:
             with st.spinner("AI đang sáng tác lời và gieo vần..."):
                 try:
@@ -189,7 +197,7 @@ with tab3:
 
     if st.button("⚡ BIẾN HÌNH THÀNH SONGOKU NGAY", use_container_width=True, key="btn_goku"):
         if not api_key:
-            st.error("⚠️ Vui lòng nhập Gemini API Key ở ô phía trên cùng!")
+            st.error("⚠️ Vui lòng đảm bảo đã kết nối Gemini API Key!")
         elif not goku_img_file:
             st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung!")
         else:
@@ -197,7 +205,6 @@ with tab3:
             try:
                 client = genai.Client(api_key=api_key)
                 
-                # Bước 1: Dùng Gemini phân tích nét mặt, giới tính, tư thế từ ảnh gốc
                 status.write("👁️ AI đang phân tích khuôn mặt và đặc điểm ảnh gốc...")
                 user_image = Image.open(goku_img_file)
                 
@@ -211,7 +218,6 @@ with tab3:
                 )
                 person_desc = analysis_res.text.strip()
 
-                # Bước 2: Tạo prompt chuyển thể sang Son Goku theo cấp độ đã chọn
                 status.write("🔥 Đang tích tụ Ki và triệu hồi hào quang Saiyan...")
                 
                 form_prompt_map = {
@@ -236,7 +242,6 @@ with tab3:
                     f"Art style: {chosen_style}. Masterpiece, dynamic fighting stance, epic composition."
                 )
 
-                # Bước 3: Dùng Imagen 3 để vẽ ảnh thành Songoku
                 status.write("🎨 Đang kết xuất bức ảnh Son Goku hoàn chỉnh...")
                 gen_result = client.models.generate_images(
                     model="imagen-3.0-generate-002",
@@ -250,14 +255,12 @@ with tab3:
                     status.update(label="✅ Biến hình thành công!", state="complete", expanded=False)
                     st.success("🎉 Bức ảnh Son Goku của bạn đã được tạo thành công!")
                     
-                    # Hiển thị so sánh ảnh gốc và ảnh sau biến hình
                     col_show1, col_show2 = st.columns(2)
                     with col_show1:
                         st.image(user_image, caption="Ảnh Gốc Của Bạn", use_container_width=True)
                     with col_show2:
                         st.image(result_img, caption="Phiên Bản Son Goku AI", use_container_width=True)
 
-                    # Chuẩn bị file để tải về máy
                     buf = io.BytesIO()
                     result_img.save(buf, format="JPEG", quality=95)
                     st.download_button(
