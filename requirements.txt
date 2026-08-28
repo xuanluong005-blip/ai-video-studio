@@ -1,9 +1,9 @@
 streamlit
 google-genai
+pillow
 moviepy
 edge-tts
-pillow
-pillow-heif
-numpy
 requests
-gradio_client
+numpy
+nest_asyncio
+pillow-heif
