@@ -426,76 +426,59 @@ elif menu_choice == "4. 🎞️ Xưởng Sản Xuất Video Đa Năng (All-In-On
         
     with col_c3:
         sub_toggle = st.checkbox("Chèn phụ đề thuyết minh tự động", value=True)
-        if sub_toggle:
-            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=20, max_value=60, value=32, step=2)
-            sub_color = st.color_picker("Màu sắc chữ phụ đề:", "#FFE600")
-
-    st.markdown("---")
-    if st.button("🎬 BẮT ĐẦU SẢN XUẤT VIDEO TỰ ĐỘNG", type="primary", use_container_width=True):
-        if not prod_script.strip():
-            st.warning("⚠️ Vui lòng nhập nội dung kịch bản thuyết minh.")
-        elif not uploaded_imgs:
-            st.warning("⚠️ Vui lòng tải lên ít nhất 1 hình ảnh minh họa.")
-        else:
-            with st.spinner("⏳ Đang tổng hợp giọng nói, căn chỉnh tỷ lệ và render video hoàn chỉnh..."):
-                try:
-                    # 1. Tạo file âm thanh bằng Edge-TTS
-                    comm = edge_tts.Communicate(prod_script, selected_prod_voice)
-                    temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-                    asyncio.run(comm.save(temp_audio_file.name))
-                    
-                    audio_clip = AudioFileClip(temp_audio_file.name)
-                    total_duration = audio_clip.duration
-                    
-                    # 2. Xác định kích thước video dựa vào tỉ lệ đã chọn
-                    if "16:9" in ratio_choice:
-                        target_w, target_h = 1280, 720
-                    elif "9:16" in ratio_choice:
-                        target_w, target_h = 720, 1280
-                    else:
-                        target_w, target_h = 1080, 1080
-
-                    # 3. Xử lý các clip hình ảnh
-                    num_images = len(uploaded_imgs)
-                    duration_per_image = total_duration / num_images
-                    clips_list = []
-                    
-                    for idx, img_item in enumerate(uploaded_imgs):
-                        t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                        t_img.write(img_item.getvalue())
-                        t_img.close()
-                        
-                        img_clip = ImageClip(t_img.name).set_duration(duration_per_image)
-                        
-                        # Cắt và ép kích thước chuẩn
-                        img_clip = img_clip.resize(newsize=(target_w, target_h))
-                        
-                        # Thêm hiệu ứng chuyển động Ken Burns
-                        if motion_effect == "Zoom In Nhẹ (Phóng to dần)":
-                            img_clip = img_clip.fx(vfx.resize, lambda t: 1.0 + 0.05 * (t / duration_per_image))
-                        elif motion_effect == "Zoom Out Nhẹ (Thu nhỏ dần)":
-                            img_clip = img_clip.fx(vfx.resize, lambda t: 1.05 - 0.05 * (t / duration_per_image))
-                            
-                        clips_list.append(img_clip)
-                        
-                    composed_base_video = concatenate_videoclips(clips_list, method="compose").set_audio(audio_clip)
-                    
-                    # 4. Thêm phụ đề (nếu người dùng kích hoạt)
+        # 4. Thêm phụ đề tiếng Việt bằng PIL (Không phụ thuộc ImageMagick)
                     if sub_toggle:
-                        clean_sub_text = prod_script.replace("\n", " ")
-                        text_clip = (
-                            TextClip(
-                                clean_sub_text,
-                                fontsize=sub_font_size,
-                                color=sub_color,
-                                font='Liberation-Sans-Bold',
-                                method='caption',
-                                size=(target_w - 100, None)
-                            )
-                            .set_position(('center', target_h - 150))
-                            .set_duration(total_duration)
-                        )
-                        final_video_clip = CompositeVideoClip([composed_base_video, text_clip])
+                        from PIL import ImageDraw, ImageFont
+
+                        def add_subtitle_to_frame(frame):
+                            # Chuyển frame thành ảnh PIL
+                            img = Image.fromarray(frame)
+                            draw = ImageDraw.Draw(img)
+                            
+                            # Cố gắng tải font hệ thống hoặc dùng font mặc định
+                            try:
+                                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", sub_font_size)
+                            except Exception:
+                                try:
+                                    font = ImageFont.truetype("arial.ttf", sub_font_size)
+                                except Exception:
+                                    font = ImageFont.load_default()
+                            
+                            text = prod_script.replace("\n", " ")
+                            
+                            # Tự động xuống dòng nếu câu quá dài
+                            max_chars = int(target_w / (sub_font_size * 0.6))
+                            words = text.split()
+                            lines = []
+                            cur_line = []
+                            for w in words:
+                                cur_line.append(w)
+                                if len(" ".join(cur_line)) > max_chars:
+                                    lines.append(" ".join(cur_line[:-1]))
+                                    cur_line = [w]
+                            if cur_line:
+                                lines.append(" ".join(cur_line))
+                            
+                            rendered_text = "\n".join(lines)
+                            
+                            # Tính vị trí căn giữa dưới đáy màn hình
+                            bbox = draw.multiline_textbbox((0, 0), rendered_text, font=font, align="center")
+                            text_w = bbox[2] - bbox[0]
+                            text_h = bbox[3] - bbox[1]
+                            pos_x = (target_w - text_w) // 2
+                            pos_y = target_h - text_h - 60
+
+                            # Vẽ viền đen tạo độ tương phản rõ nét
+                            stroke_width = 3
+                            for ox in range(-stroke_width, stroke_width + 1):
+                                for oy in range(-stroke_width, stroke_width + 1):
+                                    draw.multiline_text((pos_x + ox, pos_y + oy), rendered_text, font=font, fill="black", align="center")
+
+                            # Vẽ chữ chính
+                            draw.multiline_text((pos_x, pos_y), rendered_text, font=font, fill=sub_color, align="center")
+                            return np.array(img)
+
+                        final_video_clip = composed_base_video.fl_image(add_subtitle_to_frame)
                     else:
                         final_video_clip = composed_base_video
 
