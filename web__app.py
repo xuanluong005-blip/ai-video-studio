@@ -120,25 +120,46 @@ with st.sidebar:
 # ==============================================================================
 def call_gemini_smart_generator(api_key, prompt_text):
     genai.configure(api_key=api_key)
-    # Danh sách các tên model tương thích cao nhất
-    model_names = [
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-pro",
-        "gemini-pro"
+    
+    # 1. Tự động quét toàn bộ model khả dụng của API Key
+    available_models = []
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+    except Exception as e:
+        pass
+
+    # 2. Ưu tiên các model tối ưu nhất nếu có trong danh sách
+    target_model = None
+    priority_order = [
+        "models/gemini-1.5-flash",
+        "models/gemini-1.5-flash-latest",
+        "models/gemini-1.5-pro",
+        "models/gemini-1.5-pro-latest",
+        "models/gemini-pro"
     ]
-    last_err = None
-    for m in model_names:
-        try:
-            model = genai.GenerativeModel(m)
-            response = model.generate_content(prompt_text)
-            if response and response.text:
-                return response.text, m
-        except Exception as e:
-            last_err = e
-            continue
-    raise Exception(f"Không thể gọi model nào trong danh sách. Lỗi cuối: {last_err}")
+    
+    for p in priority_order:
+        if p in available_models:
+            target_model = p
+            break
+            
+    # Nếu không tìm thấy tên chuẩn, lấy model đầu tiên hỗ trợ generateContent
+    if not target_model and available_models:
+        target_model = available_models[0]
+        
+    if not target_model:
+        target_model = "gemini-1.5-flash"
+
+    # 3. Tiến hành sinh kịch bản
+    model = genai.GenerativeModel(target_model)
+    response = model.generate_content(prompt_text)
+    
+    if response and response.text:
+        return response.text, target_model
+    else:
+        raise Exception("Mô hình không trả về nội dung văn bản.")
 
 # ==============================================================================
 # CHỨC NĂNG 1: LIVEPORTRAIT (GPU SERVER)
