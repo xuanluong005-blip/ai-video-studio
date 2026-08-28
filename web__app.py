@@ -47,7 +47,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# HÀM BẢO TOÀN 100% HÌNH ẢNH & ĐỐI TƯỢNG (KHÔNG CẮT MẤT ĐẦU/MẶT)
+# HÀM TẠO CHUYỂN ĐỘNG LIÊN TỤC KHÔNG BỊ GIẬT HÌNH (SEAMLESS SMOOTH LOOP)
+# ==============================================================================
+def make_seamless_smooth_video(clip, target_duration):
+    """
+    Tạo vòng lặp mượt mà không bị giật/nhảy hình:
+    Ghép clip xuôi + clip ngược (time_mirror) liên tục để chuyển động trôi êm ả tự nhiên.
+    """
+    if clip.duration >= target_duration:
+        return clip.subclip(0, target_duration)
+    
+    # Tạo clip đảo chiều mượt mà
+    rev_clip = clip.fx(vfx.time_mirror)
+    pair_unit = concatenate_videoclips([clip, rev_clip])
+    
+    repeat_count = math.ceil(target_duration / pair_unit.duration) + 1
+    long_chain = concatenate_videoclips([pair_unit] * repeat_count)
+    return long_chain.subclip(0, target_duration)
+
+# ==============================================================================
+# HÀM BẢO TOÀN 100% HÌNH ẢNH (KHÔNG MẤT ĐẦU/MẶT + NỀN MỜ NGHỆ THUẬT)
 # ==============================================================================
 def fit_image_to_canvas(pil_img, target_w, target_h):
     """Giữ nguyên 100% con vật ở giữa không mất đầu, lót nền mờ phía sau."""
@@ -62,12 +81,11 @@ def fit_image_to_canvas(pil_img, target_w, target_h):
     bg_crop = bg_img.crop((left, top, left + target_w, top + target_h))
     bg_blur = bg_crop.filter(ImageFilter.GaussianBlur(radius=20))
 
-    # 2. Thu phóng vừa vặn toàn bộ ảnh chính (không bao giờ bị mất chi tiết)
+    # 2. Thu phóng vừa vặn toàn bộ ảnh chính
     scale_fg = min(target_w / orig_w, target_h / orig_h)
     fg_w, fg_h = int(orig_w * scale_fg), int(orig_h * scale_fg)
     fg_img = pil_img.resize((fg_w, fg_h), Image.Resampling.LANCZOS)
     
-    # Dán vào chính giữa
     pos_x = (target_w - fg_w) // 2
     pos_y = (target_h - fg_h) // 2
     bg_blur.paste(fg_img, (pos_x, pos_y))
@@ -75,11 +93,9 @@ def fit_image_to_canvas(pil_img, target_w, target_h):
 
 def compose_fitted_video(clip, target_w, target_h):
     """Ghép video thành phẩm với nền mờ, không bao giờ cắt xén mặt/đầu nhân vật."""
-    # Scale vừa vặn không mất góc
     scale_fg = min(target_w / clip.w, target_h / clip.h)
     fg = clip.resize(scale_fg).set_position("center")
     
-    # Nền phóng to làm mờ
     scale_bg = max(target_w / clip.w, target_h / clip.h)
     bg = clip.resize(scale_bg).crop(x_center=clip.w*scale_bg/2, y_center=clip.h*scale_bg/2, width=target_w, height=target_h)
     
@@ -161,7 +177,7 @@ def call_gemini_smart_generator(api_key, prompt_text):
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Bảo toàn 100% trọn vẹn chủ thể (không bao giờ bị mất đầu/mặt), hỗ trợ hoạt họa chuyển động mượt mà.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Chuyển động liên tục êm ái, chống giật nhảy hình (Seamless Motion), bảo toàn 100% chủ thể không mất đầu/mặt.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -190,8 +206,8 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         
     with col_cfg3:
         motion_effect = st.selectbox(
-            "Hiệu ứng chuyển cảnh cho cảnh TĨNH (Ken Burns):",
-            ["Không sử dụng hiệu ứng", "Zoom In Nhẹ (Phóng to dần)", "Zoom Out Nhẹ (Thu nhỏ dần)"]
+            "Hiệu ứng chuyển động trôi êm cho cảnh TĨNH:",
+            ["Trôi chậm êm ái (Cinematic Drift)", "Zoom In Mềm (Phóng to nhẹ)", "Zoom Out Mềm (Thu nhỏ nhẹ)"]
         )
 
     col_sub1, col_sub2 = st.columns(2)
@@ -251,7 +267,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 f"Chế độ hoạt họa cảnh {i + 1}:",
                 [
                     "🖼️ 1. Ghép phụ đề và hình tĩnh (hoặc Video thường)",
-                    "🌟 2. Nhân vật/Động vật cử động sống động theo lời nói"
+                    "🌟 2. Nhân vật/Động vật chuyển động liên tục êm ái"
                 ],
                 key=f"sc_anim_mode_{i}"
             )
@@ -296,7 +312,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG SỐNG ĐỘNG
+                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG LIÊN TỤC KHÔNG GIẬT HÌNH
                     if "🌟" in anim_choice and not is_video:
                         if not server_url.strip():
                             st.error(f"❌ Cảnh {idx + 1} yêu cầu AI chuyển động nhưng chưa có GPU Server URL!")
@@ -315,34 +331,26 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             t_anim_vid.close()
                             
                             raw_vid = VideoFileClip(t_anim_vid.name)
-                            if raw_vid.duration < sc_duration:
-                                loop_count = math.ceil(sc_duration / raw_vid.duration)
-                                raw_vid = concatenate_videoclips([raw_vid] * loop_count)
-                            raw_vid = raw_vid.subclip(0, sc_duration)
-                            
-                            # GHÉP NỀN MỜ - BẢO TOÀN 100% ĐẦU VÀ MẶT CON VẬT
-                            composed_video = compose_fitted_video(raw_vid, target_w, target_h)
+                            # ÁP DỤNG SEAMLESS SMOOTH LOOP ĐẢO CHIỀU MỀM
+                            smooth_vid = make_seamless_smooth_video(raw_vid, sc_duration)
+                            composed_video = compose_fitted_video(smooth_vid, target_w, target_h)
                             sc_composed = composed_video.set_audio(sc_audio_clip)
                         else:
                             st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU báo lỗi: {resp.text}")
                             st.stop()
                     
-                    # NẾU LÀ VIDEO
+                    # NẾU LÀ VIDEO GỐC
                     elif is_video:
                         t_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                         t_vid.write(uploaded_file.getvalue())
                         t_vid.close()
 
                         raw_vid = VideoFileClip(t_vid.name)
-                        if raw_vid.duration < sc_duration:
-                            loop_count = math.ceil(sc_duration / raw_vid.duration)
-                            raw_vid = concatenate_videoclips([raw_vid] * loop_count)
-                        
-                        raw_vid = raw_vid.subclip(0, sc_duration)
-                        composed_video = compose_fitted_video(raw_vid, target_w, target_h)
+                        smooth_vid = make_seamless_smooth_video(raw_vid, sc_duration)
+                        composed_video = compose_fitted_video(smooth_vid, target_w, target_h)
                         sc_composed = composed_video.set_audio(sc_audio_clip)
                     
-                    # CHẾ ĐỘ 1: ẢNH TĨNH
+                    # CHẾ ĐỘ 1: ẢNH TĨNH VỚI CHUYỂN ĐỘNG TRÔI TỰ NHIÊN MỘT CHIỀU
                     else:
                         pil_img = Image.open(uploaded_file).convert("RGB")
                         fitted_img = fit_image_to_canvas(pil_img, target_w, target_h)
@@ -352,9 +360,11 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                         sc_img_clip = ImageClip(t_img.name).set_duration(sc_duration)
 
-                        if motion_effect == "Zoom In Nhẹ (Phóng to dần)":
+                        if motion_effect == "Trôi chậm êm ái (Cinematic Drift)":
+                            sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.0 + 0.03 * (t / sc_duration))
+                        elif motion_effect == "Zoom In Mềm (Phóng to nhẹ)":
                             sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.0 + 0.04 * (t / sc_duration))
-                        elif motion_effect == "Zoom Out Nhẹ (Thu nhỏ dần)":
+                        elif motion_effect == "Zoom Out Mềm (Thu nhỏ nhẹ)":
                             sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.04 - 0.04 * (t / sc_duration))
 
                         sc_composed = sc_img_clip.set_audio(sc_audio_clip)
