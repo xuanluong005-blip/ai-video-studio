@@ -9,7 +9,7 @@ import asyncio
 import threading
 import requests
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import PIL.Image
 
 # --- PATCH LỖI PILLOW CHO MOVIEPY ---
@@ -23,7 +23,6 @@ import edge_tts
 from moviepy.editor import (
     ImageClip,
     AudioFileClip,
-    TextClip,
     CompositeVideoClip,
     concatenate_videoclips,
     vfx
@@ -82,7 +81,6 @@ with st.sidebar:
         help="Dán URL tunnel được cấp từ phiên chạy Kaggle GPU vào đây."
     )
     
-    # Nút kiểm tra nhanh trạng thái server
     if st.button("🔍 Kiểm Tra Kết Nối GPU", use_container_width=True):
         if not server_url.strip():
             st.warning("⚠️ Vui lòng nhập link Server GPU trước!")
@@ -128,7 +126,6 @@ with st.sidebar:
 def call_gemini_smart_generator(api_key, prompt_text):
     genai.configure(api_key=api_key)
     
-    # 1. Quét toàn bộ model khả dụng từ tài khoản API của bạn
     available_models = []
     try:
         for m in genai.list_models():
@@ -137,7 +134,6 @@ def call_gemini_smart_generator(api_key, prompt_text):
     except Exception:
         pass
 
-    # 2. Danh sách ưu tiên các model mới nhất
     priority_order = [
         "models/gemini-3.6-flash",
         "models/gemini-3.6-pro",
@@ -153,14 +149,12 @@ def call_gemini_smart_generator(api_key, prompt_text):
             target_model = p
             break
             
-    # Nếu không khớp danh sách ưu tiên, lấy model đầu tiên hỗ trợ generateContent
     if not target_model and available_models:
         target_model = available_models[0]
         
     if not target_model:
         target_model = "models/gemini-3.6-flash"
 
-    # 3. Tạo kịch bản
     model = genai.GenerativeModel(target_model)
     response = model.generate_content(prompt_text)
     
@@ -210,13 +204,10 @@ if menu_choice == "1. 🎭 Diễn Hoạt Biểu Cảm (LivePortrait GPU)":
             with st.spinner("⏳ Đang truyền dữ liệu sang máy chủ Kaggle GPU và render... (Quá trình mất 30–90 giây)"):
                 try:
                     target_endpoint = f"{server_url.strip().rstrip('/')}/process"
-                    
                     files = {
                         "image": (img_file.name, img_file.getvalue(), img_file.type or "image/jpeg"),
                         "video": (vid_file.name, vid_file.getvalue(), vid_file.type or "video/mp4")
                     }
-                    
-                    # Headers chống chặn kết nối qua Tunnel
                     headers = {
                         "User-Agent": "Mozilla/5.0",
                         "ngrok-skip-browser-warning": "true",
@@ -426,16 +417,63 @@ elif menu_choice == "4. 🎞️ Xưởng Sản Xuất Video Đa Năng (All-In-On
         
     with col_c3:
         sub_toggle = st.checkbox("Chèn phụ đề thuyết minh tự động", value=True)
-        # 4. Thêm phụ đề tiếng Việt bằng PIL (Không phụ thuộc ImageMagick)
-                    if sub_toggle:
-                        from PIL import ImageDraw, ImageFont
+        if sub_toggle:
+            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=20, max_value=60, value=32, step=2)
+            sub_color = st.color_picker("Màu sắc chữ phụ đề:", "#FFE600")
 
+    st.markdown("---")
+    if st.button("🎬 BẮT ĐẦU SẢN XUẤT VIDEO TỰ ĐỘNG", type="primary", use_container_width=True):
+        if not prod_script.strip():
+            st.warning("⚠️ Vui lòng nhập nội dung kịch bản thuyết minh.")
+        elif not uploaded_imgs:
+            st.warning("⚠️ Vui lòng tải lên ít nhất 1 hình ảnh minh họa.")
+        else:
+            with st.spinner("⏳ Đang tổng hợp giọng nói, căn chỉnh tỷ lệ và render video hoàn chỉnh..."):
+                try:
+                    # 1. Tạo file âm thanh bằng Edge-TTS
+                    comm = edge_tts.Communicate(prod_script, selected_prod_voice)
+                    temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                    asyncio.run(comm.save(temp_audio_file.name))
+                    
+                    audio_clip = AudioFileClip(temp_audio_file.name)
+                    total_duration = audio_clip.duration
+                    
+                    # 2. Xác định kích thước video dựa vào tỉ lệ đã chọn
+                    if "16:9" in ratio_choice:
+                        target_w, target_h = 1280, 720
+                    elif "9:16" in ratio_choice:
+                        target_w, target_h = 720, 1280
+                    else:
+                        target_w, target_h = 1080, 1080
+
+                    # 3. Xử lý các clip hình ảnh
+                    num_images = len(uploaded_imgs)
+                    duration_per_image = total_duration / num_images
+                    clips_list = []
+                    
+                    for idx, img_item in enumerate(uploaded_imgs):
+                        t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+                        t_img.write(img_item.getvalue())
+                        t_img.close()
+                        
+                        img_clip = ImageClip(t_img.name).set_duration(duration_per_image)
+                        img_clip = img_clip.resize(newsize=(target_w, target_h))
+                        
+                        if motion_effect == "Zoom In Nhẹ (Phóng to dần)":
+                            img_clip = img_clip.fx(vfx.resize, lambda t: 1.0 + 0.05 * (t / duration_per_image))
+                        elif motion_effect == "Zoom Out Nhẹ (Thu nhỏ dần)":
+                            img_clip = img_clip.fx(vfx.resize, lambda t: 1.05 - 0.05 * (t / duration_per_image))
+                            
+                        clips_list.append(img_clip)
+                        
+                    composed_base_video = concatenate_videoclips(clips_list, method="compose").set_audio(audio_clip)
+                    
+                    # 4. Thêm phụ đề tiếng Việt bằng PIL (Không phụ thuộc ImageMagick)
+                    if sub_toggle:
                         def add_subtitle_to_frame(frame):
-                            # Chuyển frame thành ảnh PIL
                             img = Image.fromarray(frame)
                             draw = ImageDraw.Draw(img)
                             
-                            # Cố gắng tải font hệ thống hoặc dùng font mặc định
                             try:
                                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", sub_font_size)
                             except Exception:
@@ -445,9 +483,7 @@ elif menu_choice == "4. 🎞️ Xưởng Sản Xuất Video Đa Năng (All-In-On
                                     font = ImageFont.load_default()
                             
                             text = prod_script.replace("\n", " ")
-                            
-                            # Tự động xuống dòng nếu câu quá dài
-                            max_chars = int(target_w / (sub_font_size * 0.6))
+                            max_chars = max(10, int(target_w / (sub_font_size * 0.6)))
                             words = text.split()
                             lines = []
                             cur_line = []
@@ -461,20 +497,17 @@ elif menu_choice == "4. 🎞️ Xưởng Sản Xuất Video Đa Năng (All-In-On
                             
                             rendered_text = "\n".join(lines)
                             
-                            # Tính vị trí căn giữa dưới đáy màn hình
                             bbox = draw.multiline_textbbox((0, 0), rendered_text, font=font, align="center")
                             text_w = bbox[2] - bbox[0]
                             text_h = bbox[3] - bbox[1]
                             pos_x = (target_w - text_w) // 2
                             pos_y = target_h - text_h - 60
 
-                            # Vẽ viền đen tạo độ tương phản rõ nét
                             stroke_width = 3
                             for ox in range(-stroke_width, stroke_width + 1):
                                 for oy in range(-stroke_width, stroke_width + 1):
                                     draw.multiline_text((pos_x + ox, pos_y + oy), rendered_text, font=font, fill="black", align="center")
 
-                            # Vẽ chữ chính
                             draw.multiline_text((pos_x, pos_y), rendered_text, font=font, fill=sub_color, align="center")
                             return np.array(img)
 
