@@ -47,33 +47,48 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# HÀM XỬ LÝ KHÔNG BỊ MÉO ẢNH (FIT & CROP CHUẨN TIKTOK/YOUTUBE)
+# HÀM BẢO TOÀN 100% HÌNH ẢNH & ĐỐI TƯỢNG (KHÔNG CẮT MẤT ĐẦU/MẶT)
 # ==============================================================================
 def fit_image_to_canvas(pil_img, target_w, target_h):
-    """Tạo khung hình chuẩn: Giữ đúng tỷ lệ ảnh ở giữa, phóng to làm mờ hậu cảnh."""
+    """Giữ nguyên 100% con vật ở giữa không mất đầu, lót nền mờ phía sau."""
     orig_w, orig_h = pil_img.size
     
-    # 1. Tạo nền mờ phủ kín khung hình
+    # 1. Tạo nền mờ phía sau
     scale_bg = max(target_w / orig_w, target_h / orig_h)
     bg_w, bg_h = int(orig_w * scale_bg), int(orig_h * scale_bg)
     bg_img = pil_img.resize((bg_w, bg_h), Image.Resampling.LANCZOS)
-    
-    # Crop nền vào đúng khung target
     left = (bg_w - target_w) // 2
     top = (bg_h - target_h) // 2
     bg_crop = bg_img.crop((left, top, left + target_w, top + target_h))
-    bg_blur = bg_crop.filter(ImageFilter.GaussianBlur(radius=25))
+    bg_blur = bg_crop.filter(ImageFilter.GaussianBlur(radius=20))
 
-    # 2. Thu phóng ảnh chính ở giữa giữ nguyên 100% tỷ lệ không méo
+    # 2. Thu phóng vừa vặn toàn bộ ảnh chính (không bao giờ bị mất chi tiết)
     scale_fg = min(target_w / orig_w, target_h / orig_h)
     fg_w, fg_h = int(orig_w * scale_fg), int(orig_h * scale_fg)
     fg_img = pil_img.resize((fg_w, fg_h), Image.Resampling.LANCZOS)
     
-    # Dán ảnh chính vào giữa nền mờ
+    # Dán vào chính giữa
     pos_x = (target_w - fg_w) // 2
     pos_y = (target_h - fg_h) // 2
     bg_blur.paste(fg_img, (pos_x, pos_y))
     return bg_blur
+
+def compose_fitted_video(clip, target_w, target_h):
+    """Ghép video thành phẩm với nền mờ, không bao giờ cắt xén mặt/đầu nhân vật."""
+    # Scale vừa vặn không mất góc
+    scale_fg = min(target_w / clip.w, target_h / clip.h)
+    fg = clip.resize(scale_fg).set_position("center")
+    
+    # Nền phóng to làm mờ
+    scale_bg = max(target_w / clip.w, target_h / clip.h)
+    bg = clip.resize(scale_bg).crop(x_center=clip.w*scale_bg/2, y_center=clip.h*scale_bg/2, width=target_w, height=target_h)
+    
+    def blur_frame(frame):
+        im = Image.fromarray(frame).filter(ImageFilter.GaussianBlur(radius=15))
+        return np.array(im)
+        
+    bg = bg.fl_image(blur_frame)
+    return CompositeVideoClip([bg, fg], size=(target_w, target_h)).set_duration(clip.duration)
 
 # ==============================================================================
 # 2. THANH CÔNG CỤ SIDEBAR
@@ -146,7 +161,7 @@ def call_gemini_smart_generator(api_key, prompt_text):
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Tự động giữ đúng tỷ lệ hình ảnh, chống méo hình, hỗ trợ chuyển động sống động cho <b>tất cả mọi loài động vật và người</b>.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Bảo toàn 100% trọn vẹn chủ thể (không bao giờ bị mất đầu/mặt), hỗ trợ hoạt họa chuyển động mượt mà.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -184,7 +199,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         sub_toggle = st.checkbox("Chèn phụ đề tiếng Việt tự động cho từng cảnh", value=True)
     with col_sub2:
         if sub_toggle:
-            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=20, max_value=50, value=30, step=2)
+            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=18, max_value=40, value=26, step=2)
             sub_color = st.color_picker("Màu sắc chữ phụ đề:", "#FFE600")
 
     st.markdown("---")
@@ -270,7 +285,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     pct = int(10 + (idx / total_scenes) * 70)
                     progress_bar.progress(pct, text=f"⏳ Đang xử lý Phân Cảnh {idx + 1}/{total_scenes}...")
 
-                    # 1. Tạo file audio giọng đọc cho phân cảnh
+                    # 1. Âm thanh giọng đọc
                     comm = edge_tts.Communicate(scene["text"], selected_prod_voice)
                     t_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
                     asyncio.run(comm.save(t_audio.name))
@@ -281,7 +296,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG SỐNG ĐỘNG (GỬI SANG GPU)
+                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG SỐNG ĐỘNG
                     if "🌟" in anim_choice and not is_video:
                         if not server_url.strip():
                             st.error(f"❌ Cảnh {idx + 1} yêu cầu AI chuyển động nhưng chưa có GPU Server URL!")
@@ -305,15 +320,14 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                                 raw_vid = concatenate_videoclips([raw_vid] * loop_count)
                             raw_vid = raw_vid.subclip(0, sc_duration)
                             
-                            # Căn chỉnh kích thước và giữ đúng tỉ lệ không bị méo hình
-                            raw_vid = raw_vid.resize(height=target_h) if (target_h / target_w) > (raw_vid.h / raw_vid.w) else raw_vid.resize(width=target_w)
-                            raw_vid = raw_vid.crop(x_center=raw_vid.w/2, y_center=raw_vid.h/2, width=target_w, height=target_h)
-                            sc_composed = raw_vid.set_audio(sc_audio_clip)
+                            # GHÉP NỀN MỜ - BẢO TOÀN 100% ĐẦU VÀ MẶT CON VẬT
+                            composed_video = compose_fitted_video(raw_vid, target_w, target_h)
+                            sc_composed = composed_video.set_audio(sc_audio_clip)
                         else:
                             st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU báo lỗi: {resp.text}")
                             st.stop()
                     
-                    # NẾU LÀ VIDEO SẴN CÓ
+                    # NẾU LÀ VIDEO
                     elif is_video:
                         t_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                         t_vid.write(uploaded_file.getvalue())
@@ -325,11 +339,10 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             raw_vid = concatenate_videoclips([raw_vid] * loop_count)
                         
                         raw_vid = raw_vid.subclip(0, sc_duration)
-                        raw_vid = raw_vid.resize(height=target_h) if (target_h / target_w) > (raw_vid.h / raw_vid.w) else raw_vid.resize(width=target_w)
-                        raw_vid = raw_vid.crop(x_center=raw_vid.w/2, y_center=raw_vid.h/2, width=target_w, height=target_h)
-                        sc_composed = raw_vid.set_audio(sc_audio_clip)
+                        composed_video = compose_fitted_video(raw_vid, target_w, target_h)
+                        sc_composed = composed_video.set_audio(sc_audio_clip)
                     
-                    # CHẾ ĐỘ 1: ẢNH TĨNH VỚI NỀN MỜ FIT KHUNG HÌNH (KHÔNG MÉO)
+                    # CHẾ ĐỘ 1: ẢNH TĨNH
                     else:
                         pil_img = Image.open(uploaded_file).convert("RGB")
                         fitted_img = fit_image_to_canvas(pil_img, target_w, target_h)
@@ -361,7 +374,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                                 except Exception:
                                     font = ImageFont.load_default()
 
-                            max_chars = max(10, int(target_w / (sub_font_size * 0.65)))
+                            max_chars = max(12, int(target_w / (sub_font_size * 0.65)))
                             words = txt.split()
                             lines = []
                             cur = []
@@ -378,7 +391,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             text_w = bbox[2] - bbox[0]
                             text_h = bbox[3] - bbox[1]
                             pos_x = (target_w - text_w) // 2
-                            bottom_margin = 120 if target_h > target_w else 60
+                            bottom_margin = 140 if target_h > target_w else 60
                             pos_y = target_h - text_h - bottom_margin
 
                             for ox in range(-2, 3):
@@ -394,7 +407,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                     scene_video_clips.append(sc_final_clip)
 
-                # 4. Nối video
+                # 4. Nối video hoàn chỉnh
                 progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh thành video hoàn chỉnh...")
                 final_full_video = concatenate_videoclips(scene_video_clips, method="compose")
 
