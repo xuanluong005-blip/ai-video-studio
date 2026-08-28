@@ -32,9 +32,7 @@ except Exception:
 
 st.set_page_config(page_title="AI Studio Ultimate Pro", page_icon="🎬", layout="centered")
 
-# ==========================================================
-# ⚙️ CẤU HÌNH GẮN CỐ ĐỊNH LINK SERVER GPU COLAB
-# ==========================================================
+# Cấu hình Domain Ngrok GPU Colab
 COLAB_SERVER_URL = "https://stoppable-unrivaled-driver.ngrok-free.dev"
 
 def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-flash"):
@@ -59,7 +57,7 @@ def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-f
     raise last_err
 
 def create_voice(text, voice_choice, output_path):
-    """Tạo giọng đọc trong luồng riêng biệt, an toàn 100% với Streamlit/AnyIO"""
+    """Tạo giọng đọc an toàn trên Thread riêng, tránh xung đột Streamlit"""
     voice_id = "vi-VN-HoaiMyNeural" if "Hoài My" in voice_choice else "vi-VN-NamMinhNeural"
     
     def _worker():
@@ -115,9 +113,8 @@ st.markdown("---")
 # 1. GHÉP CỬ ĐỘNG THẬT 100% (GPU COLAB TỰ ĐỘNG)
 # ==========================================================
 if feature_choice == "🚀 Ghép Cử Động Thật 100% (GPU Colab Tự Động)":
-    st.image(BANNER_URLS["COLAB"], caption="⚡ GPU Cloud Server: Tự Động Render Cử Động Cơ Mặt, Mắt, Miệng Thật 100%", use_container_width=True)
+    st.image(BANNER_URLS["COLAB"], caption="⚡ GPU Cloud Server: Tự Động Render Cử Động Cơ Mặt Thật 100%", use_container_width=True)
     st.subheader("🚀 Trình Tạo Video Cử Động Ngũ Quan 3D (Tự Động Kết Nối)")
-    st.caption("Chỉ cần tải ảnh và video mẫu lên, hệ thống sẽ tự động kết nối máy chủ GPU để xuất video.")
 
     col_c1, col_c2 = st.columns(2)
     with col_c1:
@@ -133,34 +130,38 @@ if feature_choice == "🚀 Ghép Cử Động Thật 100% (GPU Colab Tự Độn
             try:
                 target_api = f"{COLAB_SERVER_URL.rstrip('/')}/animate"
                 
-                status.write("📤 Đang chuyển ảnh và video sang máy chủ...")
+                status.write("📤 Đang nén và chuyển dữ liệu sang máy chủ...")
                 files = {
                     "source_image": (src_file.name, src_file.getvalue(), src_file.type if src_file.type else "image/jpeg"),
                     "driving_video": (drv_file.name, drv_file.getvalue(), drv_file.type if drv_file.type else "video/mp4")
                 }
+                headers = {
+                    "ngrok-skip-browser-warning": "69420",
+                    "User-Agent": "CustomClient"
+                }
 
-                status.write("🧠 GPU đang phân tích và render từng khung hình cơ mặt...")
-                response = requests.post(target_api, files=files, timeout=240)
+                status.write("🧠 GPU đang phân tích và render video (khoảng 30-60 giây)...")
+                response = requests.post(target_api, files=files, headers=headers, timeout=240)
 
                 if response.status_code == 200:
                     st.session_state['colab_rendered_video'] = response.content
                     status.update(label="✅ Render video thành công 100%!", state="complete", expanded=False)
-                    st.success("🎉 Video cử động khuôn mặt chân thực của bạn đã hoàn thành!")
+                    st.success("🎉 Video của bạn đã sẵn sàng!")
                 else:
                     status.update(label="❌ Lỗi từ máy chủ GPU!", state="error")
                     st.error(f"Máy chủ phản hồi: {response.text}")
 
             except requests.exceptions.Timeout:
                 status.update(label="❌ Hết thời gian chờ!", state="error")
-                st.error("Quá thời gian xử lý (Timeout). Vui lòng thử lại với video mẫu ngắn hơn (dưới 8 giây).")
+                st.error("Quá thời gian xử lý. Vui lòng dùng video mẫu ngắn dưới 8 giây.")
             except Exception as e:
                 status.update(label="❌ Lỗi kết nối máy chủ!", state="error")
-                st.error(f"Không thể kết nối đến GPU Server. Hãy kiểm tra xem notebook trên Colab có đang chạy không: {str(e)}")
+                st.error(f"Không thể kết nối đến GPU Server. Kiểm tra xem ô code trên Colab có đang chạy không: {str(e)}")
 
     if 'colab_rendered_video' in st.session_state:
         st.video(st.session_state['colab_rendered_video'])
         st.download_button(
-            "📥 Tải Video Cử Động Hoàn Chỉnh (.mp4)",
+            "📥 Tải Video Hoàn Chỉnh (.mp4)",
             data=st.session_state['colab_rendered_video'],
             file_name="AI_Face_Motion_Rendered.mp4",
             mime="video/mp4",
@@ -173,13 +174,8 @@ if feature_choice == "🚀 Ghép Cử Động Thật 100% (GPU Colab Tự Độn
 elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime...)":
     st.image(BANNER_URLS["TRANSFORM"], caption="⚡ Vũ Trụ Biến Hình AI: Giữ Nguyên Gương Mặt Thật", use_container_width=True)
     st.subheader("✨ Vũ Trụ Biến Hình AI (Khóa Nét Mặt + Video 6s)")
-    st.caption("Tải ảnh chân dung rõ mặt, AI sẽ phân tích và giữ nét mặt của bạn khi biến hình!")
 
-    trans_img_file = st.file_uploader(
-        "📸 Tải lên ảnh chân dung cận mặt của bạn:", 
-        type=["jpg", "jpeg", "png", "heic", "webp"], 
-        key="trans_uploader"
-    )
+    trans_img_file = st.file_uploader("📸 Tải lên ảnh chân dung cận mặt:", type=["jpg", "jpeg", "png", "heic", "webp"], key="trans_uploader")
 
     col_t1, col_t2 = st.columns(2)
     with col_t1:
@@ -210,7 +206,7 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
 
     if st.button("✨ BIẾN HÌNH & TẠO VIDEO 3D 6S", use_container_width=True, key="btn_execute_trans"):
         if not api_key:
-            st.error("⚠️ Vui lòng đảm bảo đã kết nối Gemini API Key!")
+            st.error("⚠️ Vui lòng nhập Gemini API Key!")
         elif not trans_img_file:
             st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung rõ mặt!")
         else:
@@ -223,11 +219,10 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
                 user_image.save(img_byte_arr, format='JPEG', quality=85)
                 img_bytes = img_byte_arr.getvalue()
 
-                status.write("👁️ Đang trích xuất tỉ lệ khuôn mặt, mắt, mũi, cằm...")
+                status.write("👁️ Đang phân tích tỉ lệ khuôn mặt...")
                 analysis_prompt = (
-                    "Look closely at the person in this image. Write a detailed description focusing ONLY on their "
-                    "facial identity: exact ethnicity, face shape, jawline, eye shape, nose structure, lips, skin tone, "
-                    "and current facial expression. Format as a concise description under 30 words."
+                    "Look closely at the person in this image. Write a concise description (under 30 words) focusing ONLY "
+                    "on their facial identity: ethnicity, face shape, jawline, eye shape, nose, lips, skin tone."
                 )
                 
                 contents_payload = [
@@ -247,7 +242,7 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
                     "🌌 Son Goku Bản Năng Vô Cực (Tóc Bạc)": "exact same face features of the person, with Mastered Ultra Instinct silver spiky hair, silver eyes, divine celestial galaxy aura, battle-torn gi",
                     "🧒 Biến Về Em Bé 5 Tuổi (Baby Face)": "young toddler version keeping the identical eyes and facial features of this person, cute baby cheeks, youthful innocence",
                     "👴 Du Hành Tương Lai 80 Tuổi (Lão Hóa Tóc Bạc)": "elderly aged version preserving the person's exact bone structure and eyes, realistic skin aging, silver white hair and beard",
-                    "🥷 Ninja Hokage (Làng Lá Naruto)": "exact same person wearing Kon Hokage cloak and forehead protector, dramatic ninja battle stance, maintaining original face identity",
+                    "🥷 Ninja Hokage (Làng Lá Naruto)": "exact same person wearing Konoha Hokage cloak and forehead protector, dramatic ninja battle stance, maintaining original face identity",
                     "🦾 Người Máy Chiến Binh (Cyberpunk Cyborg)": "exact same face of the person with half metallic cybernetic implants, glowing neon blue optic eye, high-tech carbon fiber armor",
                     "👑 Tổng Tài Quyền Lực (Vest Tuxedo Doanh Nhân)": "exact same person dressed in luxury black bespoke Italian tuxedo, billionaire CEO aesthetic, lavish penthouse background"
                 }
@@ -262,11 +257,7 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
                 chosen_effect = effect_prompt_map[transform_mode]
                 chosen_style = style_prompt_map[art_style]
 
-                prompt_draw = (
-                    f"A portrait of a person with the EXACT facial features: ({person_desc}). "
-                    f"Transformation applied: {chosen_effect}. "
-                    f"Style: {chosen_style}. Masterpiece, face closely resembles the subject, sharp focus, centered."
-                )
+                prompt_draw = f"A portrait of a person with the EXACT facial features: ({person_desc}). Transformation applied: {chosen_effect}. Style: {chosen_style}. Masterpiece, sharp focus, centered."
                 encoded_prompt = urllib.parse.quote(prompt_draw)
 
                 seed_num = np.random.randint(1000, 999999)
@@ -279,7 +270,7 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
                     st.session_state['trans_orig_bytes'] = buf_orig.getvalue()
                     st.session_state['trans_result_bytes'] = res.content
 
-                    status.write("🎬 Đang tổng hợp video động 3D 6 giây...")
+                    status.write("🎬 Đang tổng hợp video chuyển cảnh 3D 6 giây...")
                     with tempfile.TemporaryDirectory() as td:
                         target_w, target_h = 540, 960
                         result_pil_img = Image.open(io.BytesIO(res.content)).convert("RGB")
@@ -321,13 +312,13 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
                         clip.close()
 
                     status.update(label="✅ Hoàn tất cả Ảnh và Video 3D!", state="complete", expanded=False)
-                    st.success("🎉 Tác phẩm và Video động 3D của bạn đã hoàn thành!")
+                    st.success("🎉 Tác phẩm của bạn đã hoàn thành!")
                 else:
                     raise Exception("Không thể tải ảnh từ máy chủ vẽ tranh.")
 
             except Exception as e:
                 status.update(label="❌ Có lỗi xảy ra!", state="error")
-                st.error(f"Chi tiết lỗi: {str(e)}")
+                st.error(f"Chi tiết: {str(e)}")
 
     if 'trans_result_bytes' in st.session_state and 'trans_orig_bytes' in st.session_state:
         orig_pil = Image.open(io.BytesIO(st.session_state['trans_orig_bytes']))
@@ -336,29 +327,17 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
         if 'trans_video_bytes' in st.session_state:
             st.markdown("#### 1. Video Động 3D Chuyển Đổi 6 Giây:")
             st.video(st.session_state['trans_video_bytes'])
-            st.download_button(
-                label="📥 Tải Video Động 3D Biến Hình (.mp4)",
-                data=st.session_state['trans_video_bytes'],
-                file_name="AI_Transformation_6s.mp4",
-                mime="video/mp4",
-                use_container_width=True
-            )
+            st.download_button("📥 Tải Video Động (.mp4)", st.session_state['trans_video_bytes'], "AI_Transformation_6s.mp4", "video/mp4", use_container_width=True)
 
         st.markdown("---")
         st.markdown("#### 2. Ảnh So Sánh Chi Tiết:")
-        col_show1, col_show2 = st.columns(2)
-        with col_show1:
-            st.image(orig_pil, caption="Ảnh Gốc Của Bạn", use_container_width=True)
-        with col_show2:
-            st.image(result_pil, caption="Ảnh Sau Biến Hình", use_container_width=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.image(orig_pil, caption="Ảnh Gốc", use_container_width=True)
+        with c2:
+            st.image(result_pil, caption="Ảnh Biến Hình", use_container_width=True)
 
-        st.download_button(
-            label="📥 Tải Ảnh Tĩnh Biến Hình (.jpg)",
-            data=st.session_state['trans_result_bytes'],
-            file_name="AI_Transform_Result.jpg",
-            mime="image/jpeg",
-            use_container_width=True
-        )
+        st.download_button("📥 Tải Ảnh Tĩnh (.jpg)", st.session_state['trans_result_bytes'], "AI_Transform_Result.jpg", "image/jpeg", use_container_width=True)
 
 # ==========================================================
 # 3. TẠO VIDEO NGẮN TIKTOK / REELS TỰ ĐỘNG
@@ -366,12 +345,7 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
 elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)":
     st.image(BANNER_URLS["VIDEO"], caption="🎬 Xưởng Tạo Video TikTok / Reels Tự Động", use_container_width=True)
     st.subheader("🎬 Xưởng Tạo Video Ngắn 9:16 Tự Động")
-    uploaded_files = st.file_uploader(
-        "📸 Chọn các bức ảnh minh họa:", 
-        type=["jpg", "jpeg", "png", "heic", "webp"], 
-        accept_multiple_files=True,
-        key="uploader_vid"
-    )
+    uploaded_files = st.file_uploader("📸 Chọn các bức ảnh minh họa:", type=["jpg", "jpeg", "png", "heic", "webp"], accept_multiple_files=True, key="uploader_vid")
 
     col_v1, col_v2 = st.columns(2)
     with col_v1:
@@ -383,7 +357,7 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)":
 
     if st.button("🚀 BẮT ĐẦU TẠO VIDEO", use_container_width=True, key="btn_create_vid"):
         if not api_key or not uploaded_files or not topic:
-            st.error("⚠️ Vui lòng nhập đầy đủ API Key, ảnh và chủ đề video!")
+            st.error("⚠️ Vui lòng nhập đầy đủ thông tin!")
         else:
             status = st.status("Đang dựng video...", expanded=True)
             try:
@@ -399,7 +373,7 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)":
                     target_size = (720, 1280)
 
                     for idx, f in enumerate(uploaded_files):
-                        status.write(f"🔄 Đang xử lý phân cảnh {idx+1}/{len(uploaded_files)}...")
+                        status.write(f"🔄 Đang tạo giọng đọc phân cảnh {idx+1}...")
                         txt = lines[idx] if idx < len(lines) else f"Nội dung minh họa số {idx+1}."
                         
                         a_path = os.path.join(td, f"v_{idx}.mp3")
@@ -438,16 +412,10 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)":
 # 4. TẠO VIDEO BÓP MÁ & PHỒNG MẶT 3D (MIVORA STYLE)
 # ==========================================================
 elif feature_choice == "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style)":
-    st.image(BANNER_URLS["SQUISH"], caption="🤏 Tạo Video Bóp Má Phồng Mặt & Biểu Cảm Hờn Dỗi (Miễn Phí 100%)", use_container_width=True)
+    st.image(BANNER_URLS["SQUISH"], caption="🤏 Tạo Video Bóp Má Phồng Mặt & Biểu Cảm Hờn Dỗi", use_container_width=True)
     st.subheader("🤏 Tạo Video Bóp Má & Hờn Dỗi 3D Chuẩn Mivora")
-    st.caption("Tải 1 ảnh chân dung/em bé, hệ thống sẽ chuẩn hóa ảnh và hỗ trợ tạo video tương tác vật lý hoàn toàn miễn phí!")
 
-    squish_file = st.file_uploader(
-        "📸 Tải ảnh chân dung rõ mặt:", 
-        type=["jpg", "jpeg", "png", "heic", "webp"], 
-        key="uploader_squish"
-    )
-
+    squish_file = st.file_uploader("📸 Tải ảnh chân dung rõ mặt:", type=["jpg", "jpeg", "png", "heic", "webp"], key="uploader_squish")
     squish_type = st.selectbox(
         "🎭 Chọn phong cách tương tác:",
         [
@@ -457,11 +425,11 @@ elif feature_choice == "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style)":
         ]
     )
 
-    if st.button("🚀 CHUẨN BỊ XUẤT VIDEO 3D MIỄN PHÍ", use_container_width=True, key="btn_prep_squish"):
+    if st.button("🚀 CHUẨN BỊ XUẤT VIDEO 3D", use_container_width=True, key="btn_prep_squish"):
         if not squish_file:
             st.error("⚠️ Vui lòng tải lên 1 bức ảnh chân dung!")
         else:
-            with st.spinner("Đang tối ưu ảnh và tạo kịch bản vật lý..."):
+            with st.spinner("Đang tối ưu ảnh và tạo kịch bản..."):
                 img_raw = Image.open(squish_file).convert("RGB")
                 target_size = (720, 1280)
                 img_opt = img_raw.resize(target_size, Image.Resampling.LANCZOS)
@@ -475,46 +443,20 @@ elif feature_choice == "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style)":
                 elif "cười tít mắt" in squish_type:
                     p_text = "Two human hands gently pinch and pull both cheeks adorably. The hands release, and the character bursts into a cute joyful laughing smile, sparkling eyes, ultra-realistic smooth 3D motion."
                 else:
-                    p_text = "A finger pokes into the character's cheek, causing the entire face to inflate and puff up like a balloon, funny hilarious cartoonish physics, 3D render."
+                    p_text = "A finger pokes into the character's cheek, causing the entire face to inflate and puff up like a balloon, funny cartoon physics, 3D render."
 
                 st.session_state['squish_prompt'] = p_text
-                st.success("✅ Đã chuẩn hóa ảnh và tạo lệnh chuyển động vật lý!")
+                st.success("✅ Đã chuẩn hóa ảnh và tạo câu lệnh Prompt hoàn tất!")
 
     if 'squish_img_bytes' in st.session_state:
         st.markdown("---")
-        st.markdown("### 🎬 Lựa Chọn Phương Thức Xuất Video Miễn Phí:")
+        col_sq1, col_sq2 = st.columns(2)
+        with col_sq1:
+            st.download_button("📥 1. Tải Ảnh Đã Tối Ưu", data=st.session_state['squish_img_bytes'], file_name="Squish_Target.jpg", mime="image/jpeg", use_container_width=True)
+        with col_sq2:
+            st.link_button("🌐 3. Mở Kling AI Tạo Video", "https://klingai.com", use_container_width=True)
 
-        tab_m1, tab_m2 = st.tabs(["✨ Cách 1: Xuất Bằng Kling AI (Nhanh - Miễn Phí)", "⚡ Cách 2: Chạy Google Colab GPU (Tự Động)"])
-
-        with tab_m1:
-            st.info("""
-            **3 Bước đơn giản để nhận video bóp má chuẩn 100%:**
-            1. Bấm nút **'Tải Ảnh Đã Tối Ưu'** bên dưới về máy.
-            2. Sao chép câu lệnh Prompt có sẵn.
-            3. Bấm nút **'Mở Kling AI'** $\rightarrow$ Dán ảnh và Prompt vào để nhận video hoàn chỉnh!
-            """)
-
-            col_sq1, col_sq2 = st.columns(2)
-            with col_sq1:
-                st.download_button(
-                    "📥 1. Tải Ảnh Đã Tối Ưu Về Máy", 
-                    data=st.session_state['squish_img_bytes'], 
-                    file_name="Squish_Target.jpg", 
-                    mime="image/jpeg", 
-                    use_container_width=True
-                )
-            with col_sq2:
-                st.link_button("🌐 3. Mở Kling AI Miễn Phí", "https://klingai.com", use_container_width=True)
-
-            st.text_area("📋 2. Câu lệnh Prompt (Đã tối ưu sẵn - Chỉ cần Copy):", st.session_state.get('squish_prompt', ''), height=90)
-
-        with tab_m2:
-            st.markdown("""
-            **Chạy mô hình LivePortrait / SVD miễn phí trên GPU của Google:**
-            * Google cấp miễn phí card đồ họa GPU T4 trên nền tảng đám mây.
-            * Bạn có thể mở trực tiếp Notebook bên dưới để xử lý video mà không mất phí.
-            """)
-            st.link_button("🚀 Mở Google Colab Chạy GPU Miễn Phí", "https://colab.research.google.com/github/KwaiVGI/LivePortrait/blob/main/LivePortrait.ipynb", use_container_width=True)
+        st.text_area("📋 2. Câu lệnh Prompt (Chỉ cần copy dán vào Kling AI):", st.session_state.get('squish_prompt', ''), height=90)
 
 # ==========================================================
 # 5. SÁNG TÁC NHẠC & LỜI
@@ -527,12 +469,12 @@ elif feature_choice == "🎵 Sáng Tác Nhạc & Lời":
 
     if st.button("✍️ SÁNG TÁC LỜI BÀI HÁT", use_container_width=True, key="btn_lyrics"):
         if not api_key or not song_topic:
-            st.error("⚠️ Vui lòng nhập API Key và chủ đề bài hát!")
+            st.error("⚠️ Vui lòng nhập đầy đủ thông tin!")
         else:
-            with st.spinner("AI đang sáng tác lời và gieo vần..."):
+            with st.spinner("AI đang sáng tác lời..."):
                 try:
                     client = genai.Client(api_key=api_key)
-                    prompt = f"Sáng tác bài hát tiếng Việt phong cách {song_genre} về: '{song_topic}'. Bố cục chuẩn: [Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Outro]. Lời cảm xúc, vần điệu bắt tai."
+                    prompt = f"Sáng tác bài hát tiếng Việt phong cách {song_genre} về: '{song_topic}'. Bố cục: [Verse 1], [Chorus], [Verse 2], [Chorus], [Bridge], [Outro]. Lời cảm xúc, vần điệu bắt tai."
                     res_lyrics = generate_content_with_fallback(client, prompt, primary_model="gemini-3.6-flash")
                     st.session_state['song_lyrics'] = res_lyrics
                 except Exception as e:
@@ -540,11 +482,11 @@ elif feature_choice == "🎵 Sáng Tác Nhạc & Lời":
 
     if 'song_lyrics' in st.session_state:
         st.text_area("📝 Lời bài hát đã tạo:", st.session_state['song_lyrics'], height=250)
-        st.info("💡 Bạn copy lời bài hát trên dán vào **Suno.com** để tạo file MP3 có ca sĩ hát miễn phí!")
+        st.info("💡 Bạn copy lời bài hát trên dán vào Suno.com để tạo file MP3 có ca sĩ hát miễn phí!")
 
     st.subheader("2. Ghép Ảnh & Nhạc thành Music Video")
     mv_image = st.file_uploader("🖼️ Chọn ảnh bìa bài hát:", type=["jpg", "jpeg", "png", "heic", "webp"], key="mv_img_upload")
-    mv_audio = st.file_uploader("🎵 Tải lên file nhạc MP3 (Bài hát):", type=["mp3"], key="mv_audio_upload")
+    mv_audio = st.file_uploader("🎵 Tải lên file nhạc MP3:", type=["mp3"], key="mv_audio_upload")
 
     if st.button("🎬 XUẤT MUSIC VIDEO", use_container_width=True, key="btn_mv_render"):
         if not mv_image or not mv_audio:
