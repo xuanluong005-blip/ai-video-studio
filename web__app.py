@@ -126,7 +126,7 @@ with st.sidebar:
             "2. 🎭 Diễn Hoạt Biểu Cảm (LivePortrait GPU)",
             "3. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)",
             "4. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)",
-            "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chuyển Động AI Toàn Diện)"
+            "5. 🎞️ Sản Xuất Video Phân Cảnh (Tích Hợp Khẩu Hình & Chuyển Động AI)"
         ]
     )
 
@@ -176,7 +176,7 @@ def call_gemini_smart_generator(api_key, prompt_text):
         raise Exception("Mô hình không trả về nội dung.")
 
 # ==============================================================================
-# PHÂN HỆ 1: AI NHÂN VẬT PHÁT ÂM KHẨU HÌNH (LIP-SYNC TỪ VĂN BẢN/AUDIO)
+# PHÂN HỆ 1: AI NHÂN VẬT PHÁT ÂM KHẨU HÌNH ĐỘC LẬP
 # ==============================================================================
 if menu_choice == "1. 🗣️ AI Nhân Vật Phát Âm Khẩu Hình (Lip-Sync Văn Bản)":
     st.markdown('<div class="main-header">🗣️ AI Nhân Vật Phát Âm Khẩu Hình Chuẩn Xác (Audio Lip-Sync)</div>', unsafe_allow_html=True)
@@ -451,11 +451,11 @@ elif menu_choice == "4. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)"
     )
 
 # ==============================================================================
-# PHÂN HỆ 5: SẢN XUẤT VIDEO PHÂN CẢNH (CHUYỂN ĐỘNG AI TOÀN DIỆN)
+# PHÂN HỆ 5: SẢN XUẤT VIDEO PHÂN CẢNH (TÍCH HỢP KHẨU HÌNH & CHUYỂN ĐỘNG AI)
 # ==============================================================================
-elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chuyển Động AI Toàn Diện)":
-    st.markdown('<div class="main-header">🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chuyển Động AI Toàn Diện)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Hỗ trợ đầy đủ: <b>Ảnh tĩnh</b>, <b>Video clip</b>, <b>Cử động Người nói</b>, <b>Cử động Động vật nói</b> và <b>Chuyển động toàn thân AI (SVD)</b>.</div>', unsafe_allow_html=True)
+elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tích Hợp Khẩu Hình & Chuyển Động AI)":
+    st.markdown('<div class="main-header">🎞️ Sản Xuất Video Phân Cảnh (Tích Hợp Khẩu Hình & Chuyển Động AI)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Mỗi phân cảnh có thể chọn: <b>🗣️ Ảnh nói chuyện (Lip-Sync khớp giọng)</b>, <b>🌟 Chuyển động toàn thân AI (SVD)</b>, <b>🐾 Động vật nói (LivePortrait Animal)</b>, <b>👤 Người diễn hoạt</b> hoặc <b>🖼️ Ảnh tĩnh / Video</b>.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -534,9 +534,10 @@ elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chu
             anim_mode = st.selectbox(
                 f"Chế độ hoạt họa cảnh {i + 1}:",
                 [
+                    "🗣️ Ảnh nói chuyện (Lip-Sync Khớp giọng thoại)",
                     "🌟 Chuyển động TOÀN THÂN AI (SVD Cinematic)",
-                    "🐾 Cử động ĐỘNG VẬT nói (LivePortrait Animal)",
-                    "👤 Cử động NGƯỜI nói (LivePortrait Human)",
+                    "🐾 Cử động ĐỘNG VẬT (LivePortrait Animal)",
+                    "👤 Cử động NGƯỜI (LivePortrait Human)",
                     "🖼️ Tĩnh (Không cử động / Video thường)"
                 ],
                 key=f"sc_anim_mode_{i}"
@@ -571,9 +572,9 @@ elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chu
                     pct = int(10 + (idx / total_scenes) * 70)
                     progress_bar.progress(pct, text=f"⏳ Đang xử lý Phân Cảnh {idx + 1}/{total_scenes}...")
 
-                    # 1. Tạo audio cho phân cảnh
+                    # 1. Tạo file audio giọng đọc cho riêng phân cảnh này
                     comm = edge_tts.Communicate(scene["text"], selected_prod_voice)
-                    t_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                    t_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
                     asyncio.run(comm.save(t_audio.name))
                     sc_audio_clip = AudioFileClip(t_audio.name)
                     sc_duration = sc_audio_clip.duration
@@ -582,32 +583,51 @@ elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chu
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # NẾU CẦN GPU TẠO CHUYỂN ĐỘNG (SVD / Animal / Human)
-                    if ("🌟" in anim_choice or "🐾" in anim_choice or "👤" in anim_choice) and not is_video:
+                    # NẾU CẦN GPU XỬ LÝ (Lip-Sync, SVD, Animal, Human)
+                    if ("🗣️" in anim_choice or "🌟" in anim_choice or "🐾" in anim_choice or "👤" in anim_choice) and not is_video:
                         if not server_url.strip():
                             st.error(f"❌ Cảnh {idx + 1} yêu cầu AI chuyển động nhưng chưa có GPU Server URL!")
                             st.stop()
                             
-                        if "🌟" in anim_choice:
-                            mode_param = "svd"
-                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo chuyển động toàn thân SVD cho Cảnh {idx + 1}...")
-                        elif "🐾" in anim_choice:
-                            mode_param = "animal"
-                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động Động vật cho Cảnh {idx + 1}...")
-                        else:
-                            mode_param = "human"
-                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động Người cho Cảnh {idx + 1}...")
-                        
                         target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
-                        files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
-                        data = {"mode": mode_param}
                         headers = {
                             "User-Agent": "Mozilla/5.0",
                             "ngrok-skip-browser-warning": "true",
                             "Bypass-Tunnel-Reminder": "true"
                         }
                         
-                        resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
+                        # Chế độ 1: Lip-Sync nói chuyện theo file audio giọng đọc
+                        if "🗣️" in anim_choice:
+                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang khớp khẩu hình miệng theo lời nói cho Cảnh {idx + 1}...")
+                            with open(t_audio.name, "rb") as af:
+                                files = {
+                                    "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg"),
+                                    "audio": ("voice.wav", af.read(), "audio/wav")
+                                }
+                                data = {"mode": "lipsync"}
+                                resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
+                        
+                        # Chế độ 2: SVD Chuyển động toàn thân
+                        elif "🌟" in anim_choice:
+                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang sinh chuyển động toàn thân SVD cho Cảnh {idx + 1}...")
+                            files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
+                            data = {"mode": "svd"}
+                            resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
+                            
+                        # Chế độ 3: LivePortrait Động vật
+                        elif "🐾" in anim_choice:
+                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động Động vật cho Cảnh {idx + 1}...")
+                            files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
+                            data = {"mode": "animal"}
+                            resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
+                            
+                        # Chế độ 4: LivePortrait Người
+                        else:
+                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động Người cho Cảnh {idx + 1}...")
+                            files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
+                            data = {"mode": "human"}
+                            resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
+
                         if resp.status_code == 200:
                             t_anim_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                             t_anim_vid.write(resp.content)
@@ -620,10 +640,10 @@ elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chu
                             raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
                             sc_composed = raw_vid.set_audio(sc_audio_clip)
                         else:
-                            st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU không thể tạo cử động (Lỗi {resp.status_code}). Chi tiết: {resp.text}")
+                            st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU không thể xử lý (Lỗi {resp.status_code}). Chi tiết: {resp.text}")
                             st.stop()
                     
-                    # NẾU LÀ VIDEO THƯỜNG
+                    # NẾU LÀ VIDEO CLIP THƯỜNG
                     elif is_video:
                         t_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                         t_vid.write(uploaded_file.getvalue())
@@ -701,7 +721,7 @@ elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chu
 
                     scene_video_clips.append(sc_final_clip)
 
-                # 4. Nối tất cả các phân cảnh
+                # 4. Nối tất cả các phân cảnh thành video hoàn chỉnh
                 progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh thành video hoàn chỉnh...")
                 final_full_video = concatenate_videoclips(scene_video_clips, method="compose")
 
@@ -721,7 +741,7 @@ elif menu_choice == "5. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Chu
                 with open(out_vid_path, "rb") as vf:
                     final_bytes = vf.read()
 
-                st.success("🎉 Video hoàn chỉnh từ các phân cảnh đã xuất bản thành công!")
+                st.success("🎉 Video hoàn chỉnh từ các phân cảnh (Đã khớp khẩu hình nói chuyện) xuất bản thành công!")
                 st.video(final_bytes)
 
                 st.download_button(
