@@ -47,32 +47,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# HÀM TẠO CHUYỂN ĐỘNG LIÊN TỤC KHÔNG BỊ GIẬT HÌNH (SEAMLESS SMOOTH LOOP)
-# ==============================================================================
-def make_seamless_smooth_video(clip, target_duration):
-    """
-    Tạo vòng lặp mượt mà không bị giật/nhảy hình:
-    Ghép clip xuôi + clip ngược (time_mirror) liên tục để chuyển động trôi êm ả tự nhiên.
-    """
-    if clip.duration >= target_duration:
-        return clip.subclip(0, target_duration)
-    
-    # Tạo clip đảo chiều mượt mà
-    rev_clip = clip.fx(vfx.time_mirror)
-    pair_unit = concatenate_videoclips([clip, rev_clip])
-    
-    repeat_count = math.ceil(target_duration / pair_unit.duration) + 1
-    long_chain = concatenate_videoclips([pair_unit] * repeat_count)
-    return long_chain.subclip(0, target_duration)
-
-# ==============================================================================
 # HÀM BẢO TOÀN 100% HÌNH ẢNH (KHÔNG MẤT ĐẦU/MẶT + NỀN MỜ NGHỆ THUẬT)
 # ==============================================================================
 def fit_image_to_canvas(pil_img, target_w, target_h):
-    """Giữ nguyên 100% con vật ở giữa không mất đầu, lót nền mờ phía sau."""
+    """Giữ nguyên 100% chủ thể ở giữa không mất đầu, lót nền mờ phía sau."""
     orig_w, orig_h = pil_img.size
     
-    # 1. Tạo nền mờ phía sau
     scale_bg = max(target_w / orig_w, target_h / orig_h)
     bg_w, bg_h = int(orig_w * scale_bg), int(orig_h * scale_bg)
     bg_img = pil_img.resize((bg_w, bg_h), Image.Resampling.LANCZOS)
@@ -81,7 +61,6 @@ def fit_image_to_canvas(pil_img, target_w, target_h):
     bg_crop = bg_img.crop((left, top, left + target_w, top + target_h))
     bg_blur = bg_crop.filter(ImageFilter.GaussianBlur(radius=20))
 
-    # 2. Thu phóng vừa vặn toàn bộ ảnh chính
     scale_fg = min(target_w / orig_w, target_h / orig_h)
     fg_w, fg_h = int(orig_w * scale_fg), int(orig_h * scale_fg)
     fg_img = pil_img.resize((fg_w, fg_h), Image.Resampling.LANCZOS)
@@ -92,7 +71,7 @@ def fit_image_to_canvas(pil_img, target_w, target_h):
     return bg_blur
 
 def compose_fitted_video(clip, target_w, target_h):
-    """Ghép video thành phẩm với nền mờ, không bao giờ cắt xén mặt/đầu nhân vật."""
+    """Ghép video thành phẩm với nền mờ chuẩn, không cắt xén góc cạnh."""
     scale_fg = min(target_w / clip.w, target_h / clip.h)
     fg = clip.resize(scale_fg).set_position("center")
     
@@ -173,11 +152,11 @@ def call_gemini_smart_generator(api_key, prompt_text):
     raise Exception("Mô hình không trả về nội dung.")
 
 # ==============================================================================
-# PHÂN HỆ 1: XƯỞNG SẢN XUẤT VIDEO PHÂN CẢNH
+# PHÂN HỆ 1: XƯỞNG SẢN XUẤT VIDEO PHÂN CẢNH (KHỚP KHẨU HÌNH THEO VĂN BẢN)
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Chuyển động liên tục êm ái, chống giật nhảy hình (Seamless Motion), bảo toàn 100% chủ thể không mất đầu/mặt.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Mỗi phân cảnh hỗ trợ đúng 2 chế độ: <b>1. Ghép phụ đề và hình tĩnh (hoặc Video thường)</b> hoặc <b>2. Khớp khẩu hình đọc chuẩn từng chữ theo văn bản</b>.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -206,7 +185,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         
     with col_cfg3:
         motion_effect = st.selectbox(
-            "Hiệu ứng chuyển động trôi êm cho cảnh TĨNH:",
+            "Hiệu ứng chuyển động cho cảnh TĨNH (Ken Burns):",
             ["Trôi chậm êm ái (Cinematic Drift)", "Zoom In Mềm (Phóng to nhẹ)", "Zoom Out Mềm (Thu nhỏ nhẹ)"]
         )
 
@@ -267,7 +246,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 f"Chế độ hoạt họa cảnh {i + 1}:",
                 [
                     "🖼️ 1. Ghép phụ đề và hình tĩnh (hoặc Video thường)",
-                    "🌟 2. Nhân vật/Động vật chuyển động liên tục êm ái"
+                    "🗣️ 2. Khẩu hình mở miệng nói khớp từng chữ theo văn bản"
                 ],
                 key=f"sc_anim_mode_{i}"
             )
@@ -312,17 +291,21 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG LIÊN TỤC KHÔNG GIẬT HÌNH
-                    if "🌟" in anim_choice and not is_video:
+                    # CHẾ ĐỘ 2: KHỚP KHẨU HÌNH (GỬI CẢ ẢNH VÀ AUDIO SANG GPU)
+                    if "🗣️" in anim_choice and not is_video:
                         if not server_url.strip():
-                            st.error(f"❌ Cảnh {idx + 1} yêu cầu AI chuyển động nhưng chưa có GPU Server URL!")
+                            st.error(f"❌ Cảnh {idx + 1} yêu cầu AI khớp khẩu hình nhưng chưa có GPU Server URL!")
                             st.stop()
                             
                         target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
                         headers = {"User-Agent": "Mozilla/5.0", "ngrok-skip-browser-warning": "true"}
                         
-                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo chuyển động tự nhiên cho Cảnh {idx + 1}...")
-                        files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
+                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tái tạo khẩu hình nói theo từng âm tiết cho Cảnh {idx + 1}...")
+                        
+                        files = {
+                            "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg"),
+                            "audio": ("voice.wav", open(t_audio.name, "rb"), "audio/wav")
+                        }
                         resp = requests.post(target_endpoint, files=files, headers=headers, timeout=600)
 
                         if resp.status_code == 200:
@@ -331,9 +314,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             t_anim_vid.close()
                             
                             raw_vid = VideoFileClip(t_anim_vid.name)
-                            # ÁP DỤNG SEAMLESS SMOOTH LOOP ĐẢO CHIỀU MỀM
-                            smooth_vid = make_seamless_smooth_video(raw_vid, sc_duration)
-                            composed_video = compose_fitted_video(smooth_vid, target_w, target_h)
+                            composed_video = compose_fitted_video(raw_vid, target_w, target_h)
                             sc_composed = composed_video.set_audio(sc_audio_clip)
                         else:
                             st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU báo lỗi: {resp.text}")
@@ -346,11 +327,14 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                         t_vid.close()
 
                         raw_vid = VideoFileClip(t_vid.name)
-                        smooth_vid = make_seamless_smooth_video(raw_vid, sc_duration)
-                        composed_video = compose_fitted_video(smooth_vid, target_w, target_h)
+                        if raw_vid.duration < sc_duration:
+                            loop_count = math.ceil(sc_duration / raw_vid.duration)
+                            raw_vid = concatenate_videoclips([raw_vid] * loop_count)
+                        raw_vid = raw_vid.subclip(0, sc_duration)
+                        composed_video = compose_fitted_video(raw_vid, target_w, target_h)
                         sc_composed = composed_video.set_audio(sc_audio_clip)
                     
-                    # CHẾ ĐỘ 1: ẢNH TĨNH VỚI CHUYỂN ĐỘNG TRÔI TỰ NHIÊN MỘT CHIỀU
+                    # CHẾ ĐỘ 1: ẢNH TĨNH VỚI HIỆU ỨNG TRÔI TỰ NHIÊN
                     else:
                         pil_img = Image.open(uploaded_file).convert("RGB")
                         fitted_img = fit_image_to_canvas(pil_img, target_w, target_h)
@@ -464,7 +448,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 # ==============================================================================
 # PHÂN HỆ 2: TRỢ LÝ VIẾT KỊCH BẢN GEMINI
 # ==============================================================================
-elif menu_choice == "2. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
+elif menu_choice == "2. ✨ TrỢ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
     st.markdown('<div class="main-header">✨ Trợ Lý Sáng Tạo Kịch Bản Phân Cảnh (Gemini Studio)</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Tự động biên soạn kịch bản chia rõ từng công đoạn/phân cảnh (Scene 1, Scene 2, Scene 3...) để dễ dàng ghép ảnh hoặc video tương ứng.</div>', unsafe_allow_html=True)
 
