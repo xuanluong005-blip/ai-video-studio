@@ -9,10 +9,9 @@ import asyncio
 import threading
 import requests
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import PIL.Image
 
-# Vá Pillow cho MoviePy
 if not hasattr(PIL.Image, 'ANTIALIAS'):
     PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
 
@@ -48,6 +47,35 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
+# HÀM XỬ LÝ KHÔNG BỊ MÉO ẢNH (FIT & CROP CHUẨN TIKTOK/YOUTUBE)
+# ==============================================================================
+def fit_image_to_canvas(pil_img, target_w, target_h):
+    """Tạo khung hình chuẩn: Giữ đúng tỷ lệ ảnh ở giữa, phóng to làm mờ hậu cảnh."""
+    orig_w, orig_h = pil_img.size
+    
+    # 1. Tạo nền mờ phủ kín khung hình
+    scale_bg = max(target_w / orig_w, target_h / orig_h)
+    bg_w, bg_h = int(orig_w * scale_bg), int(orig_h * scale_bg)
+    bg_img = pil_img.resize((bg_w, bg_h), Image.Resampling.LANCZOS)
+    
+    # Crop nền vào đúng khung target
+    left = (bg_w - target_w) // 2
+    top = (bg_h - target_h) // 2
+    bg_crop = bg_img.crop((left, top, left + target_w, top + target_h))
+    bg_blur = bg_crop.filter(ImageFilter.GaussianBlur(radius=25))
+
+    # 2. Thu phóng ảnh chính ở giữa giữ nguyên 100% tỷ lệ không méo
+    scale_fg = min(target_w / orig_w, target_h / orig_h)
+    fg_w, fg_h = int(orig_w * scale_fg), int(orig_h * scale_fg)
+    fg_img = pil_img.resize((fg_w, fg_h), Image.Resampling.LANCZOS)
+    
+    # Dán ảnh chính vào giữa nền mờ
+    pos_x = (target_w - fg_w) // 2
+    pos_y = (target_h - fg_h) // 2
+    bg_blur.paste(fg_img, (pos_x, pos_y))
+    return bg_blur
+
+# ==============================================================================
 # 2. THANH CÔNG CỤ SIDEBAR
 # ==============================================================================
 with st.sidebar:
@@ -69,11 +97,7 @@ with st.sidebar:
             else:
                 with st.spinner("Đang ping..."):
                     try:
-                        headers = {
-                            "User-Agent": "Mozilla/5.0",
-                            "ngrok-skip-browser-warning": "true",
-                            "Bypass-Tunnel-Reminder": "true"
-                        }
+                        headers = {"User-Agent": "Mozilla/5.0", "ngrok-skip-browser-warning": "true"}
                         test_res = requests.get(server_url.strip().rstrip('/'), headers=headers, timeout=10)
                         if test_res.status_code == 200:
                             st.success("🟢 GPU Online!")
@@ -88,12 +112,7 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    gemini_key = st.text_input(
-        "Gemini API Key:",
-        type="password",
-        value="",
-        help="Nhập API Key để mở khóa trợ lý viết kịch bản."
-    )
+    gemini_key = st.text_input("Gemini API Key:", type="password", value="")
     
     st.markdown("---")
     menu_choice = st.radio(
@@ -114,17 +133,10 @@ def call_gemini_smart_generator(api_key, prompt_text):
     except Exception:
         pass
 
-    priority_order = [
-        "models/gemini-2.5-flash",
-        "models/gemini-1.5-flash-latest",
-        "models/gemini-1.5-flash",
-        "gemini-1.5-flash"
-    ]
-    
+    priority_order = ["models/gemini-2.5-flash", "models/gemini-1.5-flash", "gemini-1.5-flash"]
     target_model = next((p for p in priority_order if p in available_models), "gemini-1.5-flash")
     model = genai.GenerativeModel(target_model)
     response = model.generate_content(prompt_text)
-    
     if response and response.text:
         return response.text, target_model
     raise Exception("Mô hình không trả về nội dung.")
@@ -134,7 +146,7 @@ def call_gemini_smart_generator(api_key, prompt_text):
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Mỗi phân cảnh hỗ trợ đúng 2 chế độ: <b>1. Ghép phụ đề và hình tĩnh</b> hoặc <b>2. Nhân vật/Động vật chớp mắt, há miệng, biểu cảm cử động sống động</b>.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Tự động giữ đúng tỷ lệ hình ảnh, chống méo hình, hỗ trợ chuyển động sống động cho <b>tất cả mọi loài động vật và người</b>.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -145,7 +157,6 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
             "🇺🇸 en-US-GuyNeural (Nam - Mỹ)": "en-US-GuyNeural",
             "🇺🇸 en-US-JennyNeural (Nữ - Mỹ)": "en-US-JennyNeural",
             "🇬🇧 en-GB-RyanNeural (Nam - Anh)": "en-GB-RyanNeural",
-            "🇬🇧 en-GB-SoniaNeural (Nữ - Anh)": "en-GB-SoniaNeural",
             "🇨🇳 zh-CN-YunxiNeural (Nam - Trung Quốc)": "zh-CN-YunxiNeural",
             "🇯🇵 ja-JP-KeitaNeural (Nam - Nhật Bản)": "ja-JP-KeitaNeural"
         }
@@ -156,8 +167,8 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         ratio_choice = st.selectbox(
             "Tỷ lệ khung hình video:",
             [
-                "9:16 Dọc (TikTok, Shorts, Reels) - Xem trên điện thoại",
-                "16:9 Ngang (YouTube, Facebook, Web) - Xem trên máy tính",
+                "9:16 Dọc (TikTok, Shorts, Reels) - Chuẩn điện thoại",
+                "16:9 Ngang (YouTube, Facebook, Web) - Chuẩn máy tính",
                 "1:1 Vuông (Instagram Post)"
             ]
         )
@@ -217,7 +228,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
             )
             if sc_media:
                 if sc_media.type.startswith("image"):
-                    st.image(sc_media, width=90, caption="Ảnh cảnh")
+                    st.image(sc_media, width=90, caption="Ảnh gốc")
                 else:
                     st.video(sc_media)
         with c_sc3:
@@ -225,7 +236,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 f"Chế độ hoạt họa cảnh {i + 1}:",
                 [
                     "🖼️ 1. Ghép phụ đề và hình tĩnh (hoặc Video thường)",
-                    "🎭 2. Nhân vật/Động vật cử động mắt, miệng, biểu cảm sống động"
+                    "🌟 2. Nhân vật/Động vật cử động sống động theo lời nói"
                 ],
                 key=f"sc_anim_mode_{i}"
             )
@@ -270,20 +281,16 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # CHẾ ĐỘ 2: LIVEPORTRAIT CHỚP MẮT, HÁ MIỆNG, CỬ ĐỘNG (GỬI SANG GPU)
-                    if "🎭" in anim_choice and not is_video:
+                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG SỐNG ĐỘNG (GỬI SANG GPU)
+                    if "🌟" in anim_choice and not is_video:
                         if not server_url.strip():
                             st.error(f"❌ Cảnh {idx + 1} yêu cầu AI chuyển động nhưng chưa có GPU Server URL!")
                             st.stop()
                             
                         target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
-                        headers = {
-                            "User-Agent": "Mozilla/5.0",
-                            "ngrok-skip-browser-warning": "true",
-                            "Bypass-Tunnel-Reminder": "true"
-                        }
+                        headers = {"User-Agent": "Mozilla/5.0", "ngrok-skip-browser-warning": "true"}
                         
-                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tái tạo cử động mắt, miệng và cơ mặt cho Cảnh {idx + 1}...")
+                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo chuyển động tự nhiên cho Cảnh {idx + 1}...")
                         files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
                         resp = requests.post(target_endpoint, files=files, headers=headers, timeout=600)
 
@@ -296,7 +303,11 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             if raw_vid.duration < sc_duration:
                                 loop_count = math.ceil(sc_duration / raw_vid.duration)
                                 raw_vid = concatenate_videoclips([raw_vid] * loop_count)
-                            raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
+                            raw_vid = raw_vid.subclip(0, sc_duration)
+                            
+                            # Căn chỉnh kích thước và giữ đúng tỉ lệ không bị méo hình
+                            raw_vid = raw_vid.resize(height=target_h) if (target_h / target_w) > (raw_vid.h / raw_vid.w) else raw_vid.resize(width=target_w)
+                            raw_vid = raw_vid.crop(x_center=raw_vid.w/2, y_center=raw_vid.h/2, width=target_w, height=target_h)
                             sc_composed = raw_vid.set_audio(sc_audio_clip)
                         else:
                             st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU báo lỗi: {resp.text}")
@@ -313,15 +324,17 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             loop_count = math.ceil(sc_duration / raw_vid.duration)
                             raw_vid = concatenate_videoclips([raw_vid] * loop_count)
                         
-                        raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
+                        raw_vid = raw_vid.subclip(0, sc_duration)
+                        raw_vid = raw_vid.resize(height=target_h) if (target_h / target_w) > (raw_vid.h / raw_vid.w) else raw_vid.resize(width=target_w)
+                        raw_vid = raw_vid.crop(x_center=raw_vid.w/2, y_center=raw_vid.h/2, width=target_w, height=target_h)
                         sc_composed = raw_vid.set_audio(sc_audio_clip)
                     
-                    # CHẾ ĐỘ 1: ẢNH TĨNH
+                    # CHẾ ĐỘ 1: ẢNH TĨNH VỚI NỀN MỜ FIT KHUNG HÌNH (KHÔNG MÉO)
                     else:
                         pil_img = Image.open(uploaded_file).convert("RGB")
-                        pil_img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                        fitted_img = fit_image_to_canvas(pil_img, target_w, target_h)
                         t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                        pil_img.save(t_img.name, "JPEG", quality=90)
+                        fitted_img.save(t_img.name, "JPEG", quality=95)
                         t_img.close()
 
                         sc_img_clip = ImageClip(t_img.name).set_duration(sc_duration)
