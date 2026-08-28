@@ -314,7 +314,7 @@ elif menu_choice == "2. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)":
 # ==============================================================================
 # 3. TRỢ LÝ VIẾT KỊCH BẢN PHÂN CẢNH GEMINI
 # ==============================================================================
-elif menu_choice == "3. ✨ TrỢ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
+elif menu_choice == "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
     st.markdown('<div class="main-header">✨ Trợ Lý Sáng Tạo Kịch Bản Phân Cảnh (Gemini Studio)</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Tự động biên soạn kịch bản chia rõ từng công đoạn/phân cảnh (Scene 1, Scene 2, Scene 3...) để dễ dàng ghép ảnh hoặc video tương ứng.</div>', unsafe_allow_html=True)
 
@@ -500,7 +500,7 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn C�
                     if ("🐾" in anim_choice or "👤" in anim_choice) and not is_video:
                         if not server_url.strip():
                             st.error(f"❌ Cảnh {idx + 1} được yêu cầu cử động nhưng chưa có GPU Server URL!")
-                            return
+                            st.stop()
                             
                         mode_param = "animal" if "🐾" in anim_choice else "human"
                         progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động {'Động vật' if mode_param=='animal' else 'Người'} cho Cảnh {idx + 1}...")
@@ -528,7 +528,7 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn C�
                             sc_composed = raw_vid.set_audio(sc_audio_clip)
                         else:
                             st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU không thể tạo cử động (Lỗi {resp.status_code}). Chi tiết: {resp.text}")
-                            return
+                            st.stop()
                     
                     # NẾU LÀ VIDEO THƯỜNG
                     elif is_video:
