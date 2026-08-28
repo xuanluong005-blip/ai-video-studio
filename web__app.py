@@ -23,6 +23,7 @@ import google.generativeai as genai
 import edge_tts
 from moviepy.editor import (
     ImageClip,
+    VideoFileClip,
     AudioFileClip,
     CompositeVideoClip,
     concatenate_videoclips,
@@ -124,7 +125,7 @@ with st.sidebar:
             "1. 🎭 Diễn Hoạt Biểu Cảm (LivePortrait GPU)",
             "2. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)",
             "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)",
-            "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đoạn"
+            "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video Clip)"
         ]
     )
 
@@ -315,7 +316,7 @@ elif menu_choice == "2. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)":
 # ==============================================================================
 elif menu_choice == "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
     st.markdown('<div class="main-header">✨ Trợ Lý Sáng Tạo Kịch Bản Phân Cảnh (Gemini Studio)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Tự động biên soạn kịch bản chia rõ từng công đoạn/phân cảnh (Scene 1, Scene 2, Scene 3...) để dễ dàng ghép hình ảnh tương ứng.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Tự động biên soạn kịch bản chia rõ từng công đoạn/phân cảnh (Scene 1, Scene 2, Scene 3...) để dễ dàng ghép ảnh hoặc video tương ứng.</div>', unsafe_allow_html=True)
 
     col_g1, col_g2 = st.columns([2, 1])
     with col_g1:
@@ -365,13 +366,13 @@ elif menu_choice == "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)"
     )
 
 # ==============================================================================
-# 4. SẢN XUẤT VIDEO PHÂN CẢNH TỪNG CÔNG ĐOẠN (MULTI-SCENE STUDIO)
+# 4. SẢN XUẤT VIDEO PHÂN CẢNH TỪNG CÔNG ĐOẠN (HỖ TRỢ CẢ ẢNH & VIDEO)
 # ==============================================================================
-elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đoạn":
-    st.markdown('<div class="main-header">🎞️ Sản Xuất Video Phân Cảnh Từng Công Đoạn</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Mỗi phân cảnh là một công đoạn độc lập gồm: <b>Lời thuyết minh riêng</b> + <b>Hình ảnh tương ứng</b>. Hệ thống sẽ tự động ghép nối chuẩn xác thời gian từng cảnh thành video hoàn chỉnh.</div>', unsafe_allow_html=True)
+elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video Clip)":
+    st.markdown('<div class="main-header">🎞️ Sản Xuất Video Phân Cảnh (Hỗ Trợ Cả Ảnh & Video Clip)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Mỗi phân cảnh cho phép tải lên <b>Hình ảnh</b> hoặc <b>Video ngắn</b> kèm lời thuyết minh riêng. Hệ thống tự động căn chỉnh thời lượng khớp 100% với giọng đọc AI.</div>', unsafe_allow_html=True)
 
-    # 1. Cài đặt chung
+    # 1. Cấu hình chung
     st.markdown("### ⚙️ 1. Cấu Hình Chung Cho Toàn Bộ Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
     with col_cfg1:
@@ -389,7 +390,7 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
         
     with col_cfg3:
         motion_effect = st.selectbox(
-            "Hiệu ứng chuyển động (Ken Burns):",
+            "Hiệu ứng chuyển động (Chỉ áp dụng với Ảnh):",
             ["Không sử dụng hiệu ứng", "Zoom In Nhẹ (Phóng to dần)", "Zoom Out Nhẹ (Thu nhỏ dần)"]
         )
 
@@ -402,9 +403,8 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
             sub_color = st.color_picker("Màu sắc chữ phụ đề:", "#FFE600")
 
     st.markdown("---")
-    st.markdown("### 🎬 2. Thiết Lập Từng Phân Cảnh (Công Đoạn)")
+    st.markdown("### 🎬 2. Thiết Lập Từng Phân Cảnh (Tải Ảnh Hoặc Video Clip)")
 
-    # Quản lý số lượng phân cảnh
     if "num_scenes_count" not in st.session_state:
         st.session_state["num_scenes_count"] = 3
 
@@ -419,7 +419,6 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
                 st.session_state["num_scenes_count"] -= 1
                 st.rerun()
 
-    # Danh sách các phân cảnh
     scenes_data = []
     default_texts = [
         "Thức dậy sớm và uống một ly nước ấm để đánh thức mọi giác quan trong cơ thể.",
@@ -437,27 +436,33 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
             def_text = default_texts[i % len(default_texts)]
             sc_text = st.text_area(f"Lời thuyết minh phân cảnh {i + 1}:", value=def_text, key=f"sc_text_{i}", height=100)
         with c_sc2:
-            sc_img = st.file_uploader(f"Tải ảnh minh họa cho phân cảnh {i + 1}:", type=["jpg", "jpeg", "png"], key=f"sc_img_{i}")
-            if sc_img:
-                st.image(sc_img, width=160)
+            # Cho phép upload cả ảnh và video
+            sc_media = st.file_uploader(
+                f"Tải Ảnh hoặc Video cho cảnh {i + 1}:",
+                type=["jpg", "jpeg", "png", "mp4", "mov", "avi"],
+                key=f"sc_media_{i}"
+            )
+            if sc_media:
+                if sc_media.type.startswith("image"):
+                    st.image(sc_media, width=160, caption="Hình ảnh minh họa")
+                else:
+                    st.video(sc_media)
         
-        scenes_data.append({"text": sc_text, "image": sc_img})
+        scenes_data.append({"text": sc_text, "media": sc_media})
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
     if st.button("🚀 BẮT ĐẦU SẢN XUẤT VIDEO THEO TỪNG CÔNG ĐOẠN", type="primary", use_container_width=True):
-        # Kiểm tra dữ liệu
-        missing_images = [idx + 1 for idx, sc in enumerate(scenes_data) if sc["image"] is None]
+        missing_media = [idx + 1 for idx, sc in enumerate(scenes_data) if sc["media"] is None]
         empty_texts = [idx + 1 for idx, sc in enumerate(scenes_data) if not sc["text"].strip()]
         
-        if missing_images:
-            st.warning(f"⚠️ Vui lòng tải ảnh minh họa cho các phân cảnh: {missing_images}")
+        if missing_media:
+            st.warning(f"⚠️ Vui lòng tải Ảnh hoặc Video cho các phân cảnh: {missing_media}")
         elif empty_texts:
             st.warning(f"⚠️ Vui lòng nhập lời thuyết minh cho các phân cảnh: {empty_texts}")
         else:
             progress_bar = st.progress(0, text="⏳ Đang chuẩn bị các công đoạn...")
             try:
-                # Kích thước khung hình
                 if "16:9" in ratio_choice:
                     target_w, target_h = 1280, 720
                 elif "9:16" in ratio_choice:
@@ -468,36 +473,53 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
                 scene_video_clips = []
                 total_scenes = len(scenes_data)
 
-                # Xử lý từng phân cảnh một
                 for idx, scene in enumerate(scenes_data):
                     pct = int(10 + (idx / total_scenes) * 70)
-                    progress_bar.progress(pct, text=f"⏳ Đang xử lý Phân Cảnh {idx + 1}/{total_scenes} (Tạo giọng đọc + dựng cảnh)...")
+                    progress_bar.progress(pct, text=f"⏳ Đang xử lý Phân Cảnh {idx + 1}/{total_scenes}...")
 
-                    # 1. Tạo audio cho phân cảnh này
+                    # 1. Tạo audio cho phân cảnh
                     comm = edge_tts.Communicate(scene["text"], selected_prod_voice)
                     t_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
                     asyncio.run(comm.save(t_audio.name))
                     sc_audio_clip = AudioFileClip(t_audio.name)
                     sc_duration = sc_audio_clip.duration
 
-                    # 2. Xử lý ảnh cho phân cảnh này
-                    pil_img = Image.open(scene["image"]).convert("RGB")
-                    pil_img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                    t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                    pil_img.save(t_img.name, "JPEG", quality=90)
-                    t_img.close()
+                    # 2. Xử lý Ảnh hoặc Video tải lên
+                    uploaded_file = scene["media"]
+                    is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    sc_img_clip = ImageClip(t_img.name).set_duration(sc_duration)
+                    if is_video:
+                        # Lưu video tạm
+                        t_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+                        t_vid.write(uploaded_file.getvalue())
+                        t_vid.close()
 
-                    # Hiệu ứng Ken Burns
-                    if motion_effect == "Zoom In Nhẹ (Phóng to dần)":
-                        sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.0 + 0.04 * (t / sc_duration))
-                    elif motion_effect == "Zoom Out Nhẹ (Thu nhỏ dần)":
-                        sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.04 - 0.04 * (t / sc_duration))
+                        raw_vid = VideoFileClip(t_vid.name)
+                        # Cắt hoặc lặp để vừa khít thời lượng giọng đọc
+                        if raw_vid.duration < sc_duration:
+                            loop_count = math.ceil(sc_duration / raw_vid.duration)
+                            raw_vid = concatenate_videoclips([raw_vid] * loop_count)
+                        
+                        raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
+                        sc_composed = raw_vid.set_audio(sc_audio_clip)
+                    else:
+                        # Xử lý hình ảnh
+                        pil_img = Image.open(uploaded_file).convert("RGB")
+                        pil_img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                        t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+                        pil_img.save(t_img.name, "JPEG", quality=90)
+                        t_img.close()
 
-                    sc_composed = sc_img_clip.set_audio(sc_audio_clip)
+                        sc_img_clip = ImageClip(t_img.name).set_duration(sc_duration)
 
-                    # 3. Chèn phụ đề của riêng phân cảnh này
+                        if motion_effect == "Zoom In Nhẹ (Phóng to dần)":
+                            sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.0 + 0.04 * (t / sc_duration))
+                        elif motion_effect == "Zoom Out Nhẹ (Thu nhỏ dần)":
+                            sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.04 - 0.04 * (t / sc_duration))
+
+                        sc_composed = sc_img_clip.set_audio(sc_audio_clip)
+
+                    # 3. Chèn phụ đề riêng cho phân cảnh
                     if sub_toggle:
                         current_sub_text = scene["text"].replace("\n", " ")
 
@@ -531,7 +553,6 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
                             pos_x = (target_w - text_w) // 2
                             pos_y = target_h - text_h - 50
 
-                            # Viền đen
                             for ox in range(-2, 3):
                                 for oy in range(-2, 3):
                                     draw.multiline_text((pos_x + ox, pos_y + oy), rendered_txt, font=font, fill="black", align="center")
@@ -545,7 +566,7 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
 
                     scene_video_clips.append(sc_final_clip)
 
-                # 4. Nối tất cả các phân cảnh thành một video thống nhất
+                # 4. Nối tất cả các phân cảnh
                 progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh thành video hoàn chỉnh...")
                 final_full_video = concatenate_videoclips(scene_video_clips, method="compose")
 
@@ -565,7 +586,7 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh Từng Công Đo
                 with open(out_vid_path, "rb") as vf:
                     final_bytes = vf.read()
 
-                st.success("🎉 Video hoàn chỉnh từ các phân cảnh đã xuất bản thành công!")
+                st.success("🎉 Video hoàn chỉnh từ các phân cảnh (Ảnh/Video) đã xuất bản thành công!")
                 st.video(final_bytes)
 
                 st.download_button(
