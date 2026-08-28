@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import PIL.Image
 
-# Patch Pillow cho MoviePy
+# Vá Pillow cho MoviePy
 if not hasattr(PIL.Image, 'ANTIALIAS'):
     PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
 
@@ -75,7 +75,7 @@ with st.sidebar:
     
     st.markdown("### 🔌 Kết Nối Máy Chủ GPU")
     server_url = st.text_input(
-        "GPU Server URL (Cloudflare / Ngrok):",
+        "GPU Server URL (Ngrok):",
         value="",
         placeholder="https://xxxx.ngrok-free.app",
         help="Dán URL tunnel được cung cấp từ Kaggle Notebook vào đây."
@@ -126,7 +126,7 @@ with st.sidebar:
     )
 
 # ==============================================================================
-# HÀM BỔ TRỢ GEMINI VỚI MULTI-MODEL AUTO FALLBACK
+# HÀM BỔ TRỢ GEMINI
 # ==============================================================================
 def call_gemini_smart_generator(api_key, prompt_text):
     genai.configure(api_key=api_key)
@@ -139,36 +139,19 @@ def call_gemini_smart_generator(api_key, prompt_text):
         pass
 
     priority_order = [
-        "models/gemini-3.6-flash",
-        "models/gemini-3.6-pro",
         "models/gemini-2.5-flash",
         "models/gemini-1.5-flash-latest",
         "models/gemini-1.5-flash",
-        "models/gemini-1.5-pro",
-        "gemini-3.6-flash",
-        "gemini-1.5-flash",
-        "gemini-pro"
+        "gemini-1.5-flash"
     ]
     
-    target_model = None
-    for p in priority_order:
-        if p in available_models:
-            target_model = p
-            break
-            
-    if not target_model and available_models:
-        target_model = available_models[0]
-        
-    if not target_model:
-        target_model = "models/gemini-3.6-flash"
-
+    target_model = next((p for p in priority_order if p in available_models), "gemini-1.5-flash")
     model = genai.GenerativeModel(target_model)
     response = model.generate_content(prompt_text)
     
     if response and response.text:
         return response.text, target_model
-    else:
-        raise Exception("Mô hình không trả về nội dung.")
+    raise Exception("Mô hình không trả về nội dung.")
 
 # ==============================================================================
 # PHÂN HỆ 1: XƯỞNG SẢN XUẤT VIDEO PHÂN CẢNH (2 CHẾ ĐỘ HOẠT HỌA)
@@ -188,9 +171,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
             "🇬🇧 en-GB-RyanNeural (Nam - Anh)": "en-GB-RyanNeural",
             "🇬🇧 en-GB-SoniaNeural (Nữ - Anh)": "en-GB-SoniaNeural",
             "🇨🇳 zh-CN-YunxiNeural (Nam - Trung Quốc)": "zh-CN-YunxiNeural",
-            "🇨🇳 zh-CN-XiaoxiaoNeural (Nữ - Trung Quốc)": "zh-CN-XiaoxiaoNeural",
-            "🇯🇵 ja-JP-KeitaNeural (Nam - Nhật Bản)": "ja-JP-KeitaNeural",
-            "🇯🇵 ja-JP-NanamiNeural (Nữ - Nhật Bản)": "ja-JP-NanamiNeural"
+            "🇯🇵 ja-JP-KeitaNeural (Nam - Nhật Bản)": "ja-JP-KeitaNeural"
         }
         prod_voice_label = st.selectbox("Giọng đọc thuyết minh:", list(prod_voice_dict.keys()))
         selected_prod_voice = prod_voice_dict[prod_voice_label]
@@ -198,7 +179,11 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
     with col_cfg2:
         ratio_choice = st.selectbox(
             "Tỷ lệ khung hình video:",
-            ["16:9 Ngang (YouTube, Facebook, Web)", "9:16 Dọc (TikTok, Shorts, Reels)", "1:1 Vuông (Instagram Post)"]
+            [
+                "9:16 Dọc (TikTok, Shorts, Reels) - Tối ưu di động",
+                "16:9 Ngang (YouTube, Facebook, Web) - Tối ưu máy tính",
+                "1:1 Vuông (Instagram Post)"
+            ]
         )
         
     with col_cfg3:
@@ -212,7 +197,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         sub_toggle = st.checkbox("Chèn phụ đề tiếng Việt tự động cho từng cảnh", value=True)
     with col_sub2:
         if sub_toggle:
-            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=20, max_value=50, value=30, step=2)
+            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=20, max_value=50, value=32, step=2)
             sub_color = st.color_picker("Màu sắc chữ phụ đề:", "#FFE600")
 
     st.markdown("---")
@@ -284,10 +269,10 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         else:
             progress_bar = st.progress(0, text="⏳ Đang chuẩn bị các công đoạn...")
             try:
-                if "16:9" in ratio_choice:
-                    target_w, target_h = 1280, 720
-                elif "9:16" in ratio_choice:
+                if "9:16" in ratio_choice:
                     target_w, target_h = 720, 1280
+                elif "16:9" in ratio_choice:
+                    target_w, target_h = 1280, 720
                 else:
                     target_w, target_h = 720, 720
 
@@ -372,7 +357,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                         sc_composed = sc_img_clip.set_audio(sc_audio_clip)
 
-                    # 3. Chèn phụ đề theo lời thoại
+                    # 3. Chèn phụ đề theo lời thoại (Căn vùng an toàn tránh bị che trên YouTube/Facebook)
                     if sub_toggle:
                         current_sub_text = scene["text"].replace("\n", " ")
 
@@ -404,7 +389,9 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             text_w = bbox[2] - bbox[0]
                             text_h = bbox[3] - bbox[1]
                             pos_x = (target_w - text_w) // 2
-                            pos_y = target_h - text_h - 50
+                            # Đặt khoảng cách an toàn so với đáy (120px cho 9:16 và 60px cho 16:9)
+                            bottom_margin = 120 if target_h > target_w else 60
+                            pos_y = target_h - text_h - bottom_margin
 
                             for ox in range(-2, 3):
                                 for oy in range(-2, 3):
@@ -455,7 +442,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         st.download_button(
             label="⬇️ TẢI VIDEO HOÀN CHỈNH (MP4)",
             data=st.session_state["rendered_final_video"],
-            file_name="multi_scene_animated_video.mp4",
+            file_name="social_video_output.mp4",
             mime="video/mp4",
             use_container_width=True
         )
