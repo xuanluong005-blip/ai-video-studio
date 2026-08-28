@@ -3,11 +3,11 @@ import os
 import io
 import time
 import asyncio
+import threading
 import tempfile
 import urllib.parse
 import requests
 import numpy as np
-import nest_asyncio
 from google import genai
 from google.genai import types
 
@@ -29,9 +29,6 @@ try:
     pillow_heif.register_heif_opener()
 except Exception:
     pass
-
-# Kích hoạt nest_asyncio để chống xung đột event loop trong Streamlit
-nest_asyncio.apply()
 
 st.set_page_config(page_title="AI Studio Ultimate Pro", page_icon="🎬", layout="centered")
 
@@ -61,22 +58,22 @@ def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-f
                 time.sleep(1.2)
     raise last_err
 
-def run_async(coro):
-    """Hàm chạy coroutine an toàn, không bị lỗi lồng event loop"""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
-
-async def _create_voice_async(text, voice_choice, output_path):
-    voice_id = "vi-VN-HoaiMyNeural" if "Hoài My" in voice_choice else "vi-VN-NamMinhNeural"
-    communicate = edge_tts.Communicate(text, voice_id)
-    await communicate.save(output_path)
-
 def create_voice(text, voice_choice, output_path):
-    return run_async(_create_voice_async(text, voice_choice, output_path))
+    """Tạo giọng đọc trong luồng riêng biệt, an toàn 100% với Streamlit/AnyIO"""
+    voice_id = "vi-VN-HoaiMyNeural" if "Hoài My" in voice_choice else "vi-VN-NamMinhNeural"
+    
+    def _worker():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            communicate = edge_tts.Communicate(text, voice_id)
+            new_loop.run_until_complete(communicate.save(output_path))
+        finally:
+            new_loop.close()
+
+    t = threading.Thread(target=_worker)
+    t.start()
+    t.join()
 
 BANNER_URLS = {
     "HERO": "https://image.pollinations.ai/prompt/Futuristic%20creative%20AI%20video%20and%20music%20production%20studio,%20glowing%20neon%20holograms,%20Super%20Saiyan%20energy%20and%20dancing%20characters,%20ultra%20vibrant%203D%20cinematic%20digital%20art,%208k%20masterpiece?width=1200&height=400&model=flux&seed=777&nologo=true",
@@ -91,7 +88,6 @@ st.image(BANNER_URLS["HERO"], use_container_width=True)
 st.title("🎬 AI Studio Ultimate Pro")
 st.caption("Studio Đa Năng: Ghép Cử Động GPU Colab • Biến Hình 3D • Video Ngắn • Bóp Má • Nhạc AI")
 
-# Tự động lấy API Key Gemini nếu có trong secrets
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
     api_key = saved_api_key
@@ -251,7 +247,7 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
                     "🌌 Son Goku Bản Năng Vô Cực (Tóc Bạc)": "exact same face features of the person, with Mastered Ultra Instinct silver spiky hair, silver eyes, divine celestial galaxy aura, battle-torn gi",
                     "🧒 Biến Về Em Bé 5 Tuổi (Baby Face)": "young toddler version keeping the identical eyes and facial features of this person, cute baby cheeks, youthful innocence",
                     "👴 Du Hành Tương Lai 80 Tuổi (Lão Hóa Tóc Bạc)": "elderly aged version preserving the person's exact bone structure and eyes, realistic skin aging, silver white hair and beard",
-                    "🥷 Ninja Hokage (Làng Lá Naruto)": "exact same person wearing Konoha Hokage cloak and forehead protector, dramatic ninja battle stance, maintaining original face identity",
+                    "🥷 Ninja Hokage (Làng Lá Naruto)": "exact same person wearing Kon Hokage cloak and forehead protector, dramatic ninja battle stance, maintaining original face identity",
                     "🦾 Người Máy Chiến Binh (Cyberpunk Cyborg)": "exact same face of the person with half metallic cybernetic implants, glowing neon blue optic eye, high-tech carbon fiber armor",
                     "👑 Tổng Tài Quyền Lực (Vest Tuxedo Doanh Nhân)": "exact same person dressed in luxury black bespoke Italian tuxedo, billionaire CEO aesthetic, lavish penthouse background"
                 }
