@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import PIL.Image
 
+# Patch Pillow cho MoviePy
 if not hasattr(PIL.Image, 'ANTIALIAS'):
     PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
 
@@ -27,7 +28,9 @@ from moviepy.editor import (
     vfx
 )
 
-# 1. CẤU HÌNH GIAO DIỆN
+# ==============================================================================
+# 1. CẤU HÌNH GIAO DIỆN HỆ THỐNG
+# ==============================================================================
 st.set_page_config(
     page_title="AI Creative Studio Super Pro Max",
     page_icon="🎬",
@@ -37,22 +40,44 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    .main-header { font-size: 2.2rem; font-weight: 800; color: #1976D2; margin-bottom: 0.2rem; }
-    .sub-header { font-size: 1.05rem; color: #4B5563; margin-bottom: 1.5rem; }
-    .scene-box { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-    .stButton>button { border-radius: 8px; font-weight: 600; height: 3em; }
+    .main-header {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #1976D2;
+        margin-bottom: 0.2rem;
+    }
+    .sub-header {
+        font-size: 1.05rem;
+        color: #4B5563;
+        margin-bottom: 1.5rem;
+    }
+    .scene-box {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 600;
+        height: 3em;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. SIDEBAR ĐIỀU KHIỂN
+# ==============================================================================
+# 2. THANH CÔNG CỤ SIDEBAR
+# ==============================================================================
 with st.sidebar:
     st.image("https://img.icons8.com/clouds/200/video-editing.png", width=110)
     st.title("⚙️ TRUNG TÂM ĐIỀU KHIỂN")
     
+    st.markdown("### 🔌 Kết Nối Máy Chủ GPU")
     server_url = st.text_input(
-        "GPU Server URL (Ngrok / Cloudflare):",
+        "GPU Server URL (Cloudflare / Ngrok):",
         value="",
-        placeholder="https://xxxx.ngrok-free.app",
+        placeholder="https://xxxx.trycloudflare.com hoặc https://xxxx.ngrok-free.app",
         help="Dán URL tunnel được cung cấp từ Kaggle Notebook vào đây."
     )
     
@@ -64,7 +89,11 @@ with st.sidebar:
             else:
                 with st.spinner("Đang ping..."):
                     try:
-                        headers = {"User-Agent": "Mozilla/5.0", "ngrok-skip-browser-warning": "true"}
+                        headers = {
+                            "User-Agent": "Mozilla/5.0",
+                            "ngrok-skip-browser-warning": "true",
+                            "Bypass-Tunnel-Reminder": "true"
+                        }
                         test_res = requests.get(server_url.strip().rstrip('/'), headers=headers, timeout=10)
                         if test_res.status_code == 200:
                             st.success("🟢 GPU Online!")
@@ -79,18 +108,27 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    gemini_key = st.text_input("Gemini API Key:", type="password", value="", help="Nhập API Key để mở khóa trợ lý kịch bản.")
+    st.markdown("### 🔑 Khóa Google AI Studio")
+    gemini_key = st.text_input(
+        "Gemini API Key:",
+        type="password",
+        value="",
+        help="Nhập API Key để mở khóa trợ lý viết kịch bản thông minh."
+    )
     
     st.markdown("---")
     menu_choice = st.radio(
         "📌 CHỌN PHÂN HỆ LÀM VIỆC:",
         [
             "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)",
-            "2. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)",
+            "2. 🎭 Diễn Hoạt Biểu Cảm Chân Dung (LivePortrait Độc Lập)",
             "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)"
         ]
     )
 
+# ==============================================================================
+# HÀM BỔ TRỢ GEMINI VỚI MULTI-MODEL AUTO FALLBACK
+# ==============================================================================
 def call_gemini_smart_generator(api_key, prompt_text):
     genai.configure(api_key=api_key)
     available_models = []
@@ -102,22 +140,43 @@ def call_gemini_smart_generator(api_key, prompt_text):
         pass
 
     priority_order = [
-        "models/gemini-3.6-flash", "models/gemini-3.6-pro",
-        "models/gemini-2.5-flash", "models/gemini-1.5-flash", "gemini-1.5-flash"
+        "models/gemini-3.6-flash",
+        "models/gemini-3.6-pro",
+        "models/gemini-2.5-flash",
+        "models/gemini-1.5-flash-latest",
+        "models/gemini-1.5-flash",
+        "models/gemini-1.5-pro",
+        "gemini-3.6-flash",
+        "gemini-1.5-flash",
+        "gemini-pro"
     ]
-    target_model = next((p for p in priority_order if p in available_models), "models/gemini-3.6-flash")
+    
+    target_model = None
+    for p in priority_order:
+        if p in available_models:
+            target_model = p
+            break
+            
+    if not target_model and available_models:
+        target_model = available_models[0]
+        
+    if not target_model:
+        target_model = "models/gemini-3.6-flash"
+
     model = genai.GenerativeModel(target_model)
     response = model.generate_content(prompt_text)
+    
     if response and response.text:
         return response.text, target_model
-    raise Exception("Mô hình không trả về nội dung.")
+    else:
+        raise Exception("Mô hình không trả về nội dung.")
 
 # ==============================================================================
-# 1. XƯỞNG SẢN XUẤT VIDEO PHÂN CẢNH
+# PHÂN HỆ 1: XƯỞNG SẢN XUẤT VIDEO PHÂN CẢNH TOÀN DIỆN
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Tùy biến từng phân cảnh: <b>🗣️ Ảnh nói chuyện (Lip-Sync khớp giọng)</b>, <b>🌟 Chuyển động toàn thân AI (SVD)</b>, <b>🐾 Động vật nói</b>, <b>👤 Người diễn hoạt</b> hoặc <b>🖼️ Ảnh tĩnh / Video</b>.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Mỗi phân cảnh có thể chọn: <b>🗣️ Ảnh nói chuyện (Lip-Sync khớp giọng)</b>, <b>🌟 Chuyển động toàn thân AI (SVD)</b>, <b>🐾 Động vật nói</b>, <b>👤 Người diễn hoạt</b> hoặc <b>🖼️ Ảnh tĩnh / Video</b>.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -243,7 +302,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     pct = int(10 + (idx / total_scenes) * 70)
                     progress_bar.progress(pct, text=f"⏳ Đang xử lý Phân Cảnh {idx + 1}/{total_scenes}...")
 
-                    # 1. Tạo file audio giọng đọc
+                    # 1. Tạo file audio giọng đọc cho riêng phân cảnh
                     comm = edge_tts.Communicate(scene["text"], selected_prod_voice)
                     t_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
                     asyncio.run(comm.save(t_audio.name))
@@ -261,10 +320,15 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             st.stop()
                             
                         target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
-                        headers = {"User-Agent": "Mozilla/5.0", "ngrok-skip-browser-warning": "true"}
+                        headers = {
+                            "User-Agent": "Mozilla/5.0",
+                            "ngrok-skip-browser-warning": "true",
+                            "Bypass-Tunnel-Reminder": "true"
+                        }
                         
+                        # Chế độ 1: Lip-Sync nói chuyện theo âm thanh
                         if "🗣️" in anim_choice:
-                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang khớp khẩu hình miệng cho Cảnh {idx + 1}...")
+                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang khớp khẩu hình miệng theo lời nói cho Cảnh {idx + 1}...")
                             with open(t_audio.name, "rb") as af:
                                 files = {
                                     "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg"),
@@ -273,18 +337,21 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                                 data = {"mode": "lipsync"}
                                 resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
                         
+                        # Chế độ 2: SVD Chuyển động toàn thân
                         elif "🌟" in anim_choice:
-                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang sinh chuyển động SVD cho Cảnh {idx + 1}...")
+                            progress_bar.progress(pct + 2, text=f"⏳ GPU đang sinh chuyển động toàn thân SVD cho Cảnh {idx + 1}...")
                             files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
                             data = {"mode": "svd"}
                             resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
                             
+                        # Chế độ 3: LivePortrait Động vật
                         elif "🐾" in anim_choice:
                             progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động Động vật cho Cảnh {idx + 1}...")
                             files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
                             data = {"mode": "animal"}
                             resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
                             
+                        # Chế độ 4: LivePortrait Người
                         else:
                             progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động Người cho Cảnh {idx + 1}...")
                             files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
@@ -306,6 +373,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU không thể xử lý (Lỗi {resp.status_code}). Chi tiết: {resp.text}")
                             st.stop()
                     
+                    # NẾU LÀ VIDEO CLIP THƯỜNG
                     elif is_video:
                         t_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                         t_vid.write(uploaded_file.getvalue())
@@ -319,6 +387,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                         raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
                         sc_composed = raw_vid.set_audio(sc_audio_clip)
                     
+                    # NẾU LÀ ẢNH TĨNH
                     else:
                         pil_img = Image.open(uploaded_file).convert("RGB")
                         pil_img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
@@ -335,7 +404,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                         sc_composed = sc_img_clip.set_audio(sc_audio_clip)
 
-                    # Phụ đề
+                    # 3. Chèn phụ đề riêng cho phân cảnh
                     if sub_toggle:
                         current_sub_text = scene["text"].replace("\n", " ")
 
@@ -382,7 +451,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                     scene_video_clips.append(sc_final_clip)
 
-                # Nối video & ghi file chuẩn web H.264
+                # 4. Nối tất cả các phân cảnh thành video hoàn chỉnh
                 progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh thành video hoàn chỉnh...")
                 final_full_video = concatenate_videoclips(scene_video_clips, method="compose")
 
@@ -411,9 +480,9 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 progress_bar.empty()
                 st.error(f"❌ Xảy ra lỗi trong quá trình sản xuất video phân cảnh: {e}")
 
-    # Hiển thị video bền vững
+    # Hiển thị video bền vững từ session_state (chống mất video khi bấm nút)
     if "rendered_final_video" in st.session_state and st.session_state["rendered_final_video"]:
-        st.success("🎉 Video hoàn chỉnh từ các phân cảnh xuất bản thành công!")
+        st.success("🎉 Video hoàn chỉnh từ các phân cảnh đã xuất bản thành công!")
         st.video(st.session_state["rendered_final_video"])
         st.download_button(
             label="⬇️ TẢI VIDEO HOÀN CHỈNH (MP4)",
@@ -424,72 +493,79 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         )
 
 # ==============================================================================
-# 2. PHÒNG THU GIỌNG NÓI AI
+# PHÂN HỆ 2: LIVEPORTRAIT ĐỘC LẬP (GPU SERVER)
 # ==============================================================================
-elif menu_choice == "2. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)":
-    st.markdown('<div class="main-header">🎙️ Phòng Thu Giọng Nói Chuẩn AI (Edge-TTS Studio)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Chuyển đổi văn bản thành giọng đọc tự nhiên, hỗ trợ đa vùng miền và đầy đủ các ngôn ngữ phổ biến.</div>', unsafe_allow_html=True)
+elif menu_choice == "2. 🎭 Diễn Hoạt Biểu Cảm Chân Dung (LivePortrait Độc Lập)":
+    st.markdown('<div class="main-header">🎭 Diễn Hoạt Cử Động Biểu Cảm Khuôn Mặt (LivePortrait)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Đồng bộ chính xác biểu cảm mắt, khuôn mày, cơ mặt và khẩu hình môi từ video mẫu sang ảnh chân dung bằng Kaggle GPU.</div>', unsafe_allow_html=True)
 
-    tts_text = st.text_area(
-        "Nhập nội dung văn bản cần đọc:",
-        height=180,
-        value="Chào mừng bạn đến với hệ thống AI Creative Studio. Mọi kịch bản của bạn đều được chuyển đổi thành giọng đọc truyền cảm và sống động nhất."
-    )
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### 1. Ảnh Chân Dung Nguồn (Source Image)")
+        img_file = st.file_uploader("Tải lên ảnh chân dung sắc nét:", type=["jpg", "jpeg", "png"], key="lp_source_img")
+        if img_file:
+            st.image(img_file, caption="Ảnh chân dung đã chọn", use_container_width=True)
 
-    col_t1, col_t2, col_t3 = st.columns(3)
-    with col_t1:
-        voice_dict = {
-            "🇻🇳 vi-VN-NamMinhNeural (Nam - Miền Bắc)": "vi-VN-NamMinhNeural",
-            "🇻🇳 vi-VN-HoaiMyNeural (Nữ - Miền Bắc)": "vi-VN-HoaiMyNeural",
-            "🇺🇸 en-US-GuyNeural (Nam - Mỹ)": "en-US-GuyNeural",
-            "🇺🇸 en-US-JennyNeural (Nữ - Mỹ)": "en-US-JennyNeural",
-            "🇬🇧 en-GB-RyanNeural (Nam - Anh)": "en-GB-RyanNeural",
-            "🇬🇧 en-GB-SoniaNeural (Nữ - Anh)": "en-GB-SoniaNeural",
-            "🇨🇳 zh-CN-YunxiNeural (Nam - Trung Quốc)": "zh-CN-YunxiNeural",
-            "🇨🇳 zh-CN-XiaoxiaoNeural (Nữ - Trung Quốc)": "zh-CN-XiaoxiaoNeural",
-            "🇯🇵 ja-JP-KeitaNeural (Nam - Nhật Bản)": "ja-JP-KeitaNeural",
-            "🇯🇵 ja-JP-NanamiNeural (Nữ - Nhật Bản)": "ja-JP-NanamiNeural"
-        }
-        selected_voice_label = st.selectbox("Chọn giọng đọc:", list(voice_dict.keys()))
-        selected_voice = voice_dict[selected_voice_label]
+    with col2:
+        st.markdown("#### 2. Video Mẫu Biểu Cảm (Driving Video)")
+        vid_file = st.file_uploader("Tải lên video mẫu cử động (3-10 giây):", type=["mp4", "mov", "avi"], key="lp_drive_vid")
+        if vid_file:
+            st.video(vid_file)
 
-    with col_t2:
-        voice_rate = st.slider("Tốc độ phát âm (%):", min_value=-50, max_value=50, value=0, step=5)
-        rate_str = f"{'+' if voice_rate >= 0 else ''}{voice_rate}%"
+    st.markdown("#### ⚙️ Cấu Hình Thuật Toán LivePortrait")
+    with st.expander("Bấm để mở tùy chỉnh nâng cao", expanded=True):
+        c_p1, c_p2, c_p3 = st.columns(3)
+        with c_p1:
+            lp_flag_eye = st.checkbox("Đồng bộ cử động mắt (Eye Retargeting)", value=True)
+            lp_flag_lip = st.checkbox("Đồng bộ khẩu hình môi (Lip Retargeting)", value=True)
+        with c_p2:
+            lp_flag_head = st.checkbox("Khớp chuyển động xoay đầu (Head Pose)", value=True)
+            lp_smooth = st.slider("Độ mượt mà (Smoothing Factor):", min_value=1, max_value=10, value=5)
+        with c_p3:
+            lp_crop_mode = st.selectbox("Khung hình kết quả:", ["Tập trung khuôn mặt (Face Crop)", "Toàn ảnh gốc (Full Image)"])
 
-    with col_t3:
-        voice_pitch = st.slider("Cao độ thanh âm (Hz):", min_value=-30, max_value=30, value=0, step=5)
-        pitch_str = f"{'+' if voice_pitch >= 0 else ''}{voice_pitch}Hz"
-
-    if st.button("🔊 TẠO GIỌNG ĐỌC NGAY", type="primary", use_container_width=True):
-        if not tts_text.strip():
-            st.warning("⚠️ Vui lòng nhập nội dung văn bản.")
+    if st.button("🎬 BẮT ĐẦU XUẤT VIDEO BIỂU CẢM", type="primary", use_container_width=True):
+        if not img_file or not vid_file:
+            st.warning("⚠️ Vui lòng tải lên cả ẢNH NGUỒN và VIDEO MẪU BIỂU CẢM.")
+        elif not server_url.strip():
+            st.error("❌ Vui lòng cung cấp link GPU Server URL ở cột điều khiển bên trái.")
         else:
-            with st.spinner("Đang tổng hợp âm thanh..."):
+            with st.spinner("⏳ Đang gửi dữ liệu tới Kaggle GPU và render..."):
                 try:
-                    async def run_edge_tts():
-                        communicate = edge_tts.Communicate(tts_text, selected_voice, rate=rate_str, pitch=pitch_str)
-                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-                        await communicate.save(temp_file.name)
-                        return temp_file.name
+                    target_endpoint = f"{server_url.strip().rstrip('/')}/process"
+                    files = {
+                        "image": (img_file.name, img_file.getvalue(), img_file.type or "image/jpeg"),
+                        "video": (vid_file.name, vid_file.getvalue(), vid_file.type or "video/mp4")
+                    }
+                    headers = {
+                        "User-Agent": "Mozilla/5.0",
+                        "ngrok-skip-browser-warning": "true",
+                        "Bypass-Tunnel-Reminder": "true"
+                    }
                     
-                    audio_res_path = asyncio.run(run_edge_tts())
-                    st.success("🎉 Tạo âm thanh thành công!")
-                    st.audio(audio_res_path)
+                    response = requests.post(target_endpoint, files=files, headers=headers, timeout=600)
                     
-                    with open(audio_res_path, "rb") as af:
+                    if response.status_code == 200:
+                        st.success("🎉 Xuất video biểu cảm LivePortrait thành công!")
+                        st.video(response.content)
                         st.download_button(
-                            label="⬇️ TẢI FILE MP3",
-                            data=af.read(),
-                            file_name="tts_voice_output.mp3",
-                            mime="audio/mp3",
+                            label="⬇️ TẢI VIDEO THÀNH PHẨM (MP4)",
+                            data=response.content,
+                            file_name="liveportrait_animated_result.mp4",
+                            mime="video/mp4",
                             use_container_width=True
                         )
-                except Exception as tts_err:
-                    st.error(f"❌ Lỗi xử lý âm thanh: {tts_err}")
+                    else:
+                        st.error(f"❌ Máy chủ GPU báo lỗi (Mã {response.status_code}):")
+                        try:
+                            st.json(response.json())
+                        except Exception:
+                            st.write(response.text)
+                except requests.exceptions.RequestException as req_err:
+                    st.error(f"❌ Không thể kết nối tới GPU Server: {req_err}")
 
 # ==============================================================================
-# 3. TRỢ LÝ VIẾT KỊCH BẢN GEMINI
+# PHÂN HỆ 3: TRỢ LÝ VIẾT KỊCH BẢN PHÂN CẢNH GEMINI
 # ==============================================================================
 elif menu_choice == "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
     st.markdown('<div class="main-header">✨ Trợ Lý Sáng Tạo Kịch Bản Phân Cảnh (Gemini Studio)</div>', unsafe_allow_html=True)
