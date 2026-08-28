@@ -27,6 +27,12 @@ except Exception:
 
 st.set_page_config(page_title="AI Studio Ultimate Pro", page_icon="🎬", layout="centered")
 
+# ==========================================================
+# ⚙️ CẤU HÌNH GẮN CỐ ĐỊNH LINK SERVER GPU (KHÔNG CẦN NHẬP TAY)
+# ==========================================================
+# Thay bằng Domain Ngrok cố định của bạn (ví dụ: https://my-ai-server.ngrok-free.app)
+COLAB_SERVER_URL = "https://your-domain.ngrok-free.app"
+
 def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-flash"):
     candidate_models = [
         primary_model,
@@ -61,7 +67,7 @@ st.image(BANNER_URLS["HERO"], use_container_width=True)
 st.title("🎬 AI Studio Ultimate Pro")
 st.caption("Studio Đa Năng: Ghép Cử Động GPU Colab • Biến Hình 3D • Video Ngắn • Bóp Má • Nhạc AI")
 
-# Xử lý API Key Gemini
+# Tự động lấy API Key Gemini nếu có trong secrets
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
     api_key = saved_api_key
@@ -73,7 +79,7 @@ st.markdown("### 🎯 Chọn Chức Năng Cần Sử Dụng:")
 feature_choice = st.radio(
     "Danh sách tính năng:",
     [
-        "🚀 Ghép Cử Động Thật 100% (Kết Nối Google Colab GPU)",
+        "🚀 Ghép Cử Động Thật 100% (GPU Colab Tự Động)",
         "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime...)",
         "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)",
         "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style)",
@@ -86,43 +92,34 @@ feature_choice = st.radio(
 st.markdown("---")
 
 # ==========================================================
-# 1. GHÉP CỬ ĐỘNG THẬT 100% (KẾT NỐI GOOGLE COLAB GPU)
+# 1. GHÉP CỬ ĐỘNG THẬT 100% (GẮN CỐ ĐỊNH SERVER)
 # ==========================================================
-if feature_choice == "🚀 Ghép Cử Động Thật 100% (Kết Nối Google Colab GPU)":
-    st.image(BANNER_URLS["COLAB"], caption="⚡ GPU Cloud Server: Render Cử Động Cơ Mặt, Mắt, Miệng 100% Thật", use_container_width=True)
-    st.subheader("🚀 Trình Tạo Video Cử Động Ngũ Quan 3D (Colab GPU Miễn Phí)")
-    st.caption("Hệ thống kết nối trực tiếp với GPU T4 miễn phí trên Google Colab để render từng khung hình cơ mặt.")
-
-    colab_url = st.text_input(
-        "🔗 1. Nhập URL Server Colab (Lấy từ Bước 2 trên Colab):",
-        placeholder="https://xxxx-xx-xx.ngrok-free.app",
-        help="Dán link ngrok được in ra ở ô code Google Colab vào đây."
-    )
+if feature_choice == "🚀 Ghép Cử Động Thật 100% (GPU Colab Tự Động)":
+    st.image(BANNER_URLS["COLAB"], caption="⚡ GPU Cloud Server: Tự Động Render Cử Động Cơ Mặt, Mắt, Miệng Thật 100%", use_container_width=True)
+    st.subheader("🚀 Trình Tạo Video Cử Động Ngũ Quan 3D (Tự Động Kết Nối)")
+    st.caption("Chỉ cần tải ảnh và video mẫu lên, hệ thống sẽ tự động kết nối máy chủ GPU để xuất video.")
 
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        src_file = st.file_uploader("📸 2. Tải ảnh nhân vật tĩnh:", type=["jpg", "jpeg", "png", "webp"], key="colab_src_img")
+        src_file = st.file_uploader("📸 1. Tải ảnh nhân vật tĩnh:", type=["jpg", "jpeg", "png", "webp"], key="colab_src_img")
     with col_c2:
-        drv_file = st.file_uploader("🎞️ 3. Tải video cử động mẫu:", type=["mp4", "mov", "avi"], key="colab_drv_vid")
+        drv_file = st.file_uploader("🎞️ 2. Tải video cử động mẫu:", type=["mp4", "mov", "avi"], key="colab_drv_vid")
 
     if st.button("🎬 XUẤT VIDEO CỬ ĐỘNG THẬT 100%", use_container_width=True, key="btn_run_colab_render"):
-        if not colab_url:
-            st.error("⚠️ Vui lòng nhập link URL Server Google Colab!")
-        elif not src_file or not drv_file:
+        if not src_file or not drv_file:
             st.error("⚠️ Vui lòng tải lên đầy đủ cả Ảnh chân dung và Video cử động mẫu!")
         else:
-            status = st.status("⏳ Đang gửi dữ liệu sang Google Colab GPU để render...", expanded=True)
+            status = st.status("⏳ Đang gửi dữ liệu sang GPU Server để render...", expanded=True)
             try:
-                clean_url = colab_url.strip().rstrip("/")
-                target_api = f"{clean_url}/animate"
+                target_api = f"{COLAB_SERVER_URL.rstrip('/')}/animate"
                 
-                status.write("📤 Đang nén và chuyển dữ liệu qua đường truyền ngầm...")
+                status.write("📤 Đang chuyển ảnh và video sang máy chủ...")
                 files = {
                     "source_image": (src_file.name, src_file.getvalue(), src_file.type if src_file.type else "image/jpeg"),
                     "driving_video": (drv_file.name, drv_file.getvalue(), drv_file.type if drv_file.type else "video/mp4")
                 }
 
-                status.write("🧠 GPU T4 đang phân tích 68 điểm cơ mặt và tính toán chuyển động...")
+                status.write("🧠 GPU đang phân tích và render từng khung hình cơ mặt...")
                 response = requests.post(target_api, files=files, timeout=240)
 
                 if response.status_code == 200:
@@ -130,15 +127,15 @@ if feature_choice == "🚀 Ghép Cử Động Thật 100% (Kết Nối Google Co
                     status.update(label="✅ Render video thành công 100%!", state="complete", expanded=False)
                     st.success("🎉 Video cử động khuôn mặt chân thực của bạn đã hoàn thành!")
                 else:
-                    status.update(label="❌ Lỗi từ máy chủ Colab!", state="error")
+                    status.update(label="❌ Lỗi từ máy chủ GPU!", state="error")
                     st.error(f"Máy chủ phản hồi: {response.text}")
 
             except requests.exceptions.Timeout:
                 status.update(label="❌ Hết thời gian chờ!", state="error")
-                st.error("Quá thời gian xử lý (Timeout). Vui lòng thử với video mẫu ngắn hơn (dưới 10 giây).")
+                st.error("Quá thời gian xử lý (Timeout). Vui lòng thử lại với video mẫu ngắn hơn (dưới 8 giây).")
             except Exception as e:
-                status.update(label="❌ Lỗi kết nối!", state="error")
-                st.error(f"Không thể kết nối đến URL Colab: {str(e)}. Hãy chắc chắn ô code trên Colab vẫn đang ở trạng thái chạy.")
+                status.update(label="❌ Lỗi kết nối máy chủ!", state="error")
+                st.error(f"Không thể kết nối đến GPU Server. Hãy kiểm tra xem notebook trên Colab có đang chạy không: {str(e)}")
 
     if 'colab_rendered_video' in st.session_state:
         st.video(st.session_state['colab_rendered_video'])
@@ -151,7 +148,7 @@ if feature_choice == "🚀 Ghép Cử Động Thật 100% (Kết Nối Google Co
         )
 
 # ==========================================================
-# 2. VŨ TRỤ BIẾN HÌNH AI (ẢNH HD + VIDEO ĐỘNG 6S)
+# 2. VŨ TRỤ BIẾN HÌNH AI
 # ==========================================================
 elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime...)":
     st.image(BANNER_URLS["TRANSFORM"], caption="⚡ Vũ Trụ Biến Hình AI: Giữ Nguyên Gương Mặt Thật", use_container_width=True)
