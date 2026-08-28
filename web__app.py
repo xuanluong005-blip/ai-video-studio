@@ -125,7 +125,7 @@ with st.sidebar:
             "1. 🎭 Diễn Hoạt Biểu Cảm (LivePortrait GPU)",
             "2. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)",
             "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)",
-            "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video Clip)"
+            "4. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Cử Động Người & Động Vật)"
         ]
     )
 
@@ -366,14 +366,14 @@ elif menu_choice == "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)"
     )
 
 # ==============================================================================
-# 4. SẢN XUẤT VIDEO PHÂN CẢNH TỪNG CÔNG ĐOẠN (HỖ TRỢ CẢ ẢNH & VIDEO)
+# 4. SẢN XUẤT VIDEO PHÂN CẢNH (HỖ TRỢ CỬ ĐỘNG NGƯỜI & ĐỘNG VẬT NÓI)
 # ==============================================================================
-elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video Clip)":
-    st.markdown('<div class="main-header">🎞️ Sản Xuất Video Phân Cảnh (Hỗ Trợ Cả Ảnh & Video Clip)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Mỗi phân cảnh cho phép tải lên <b>Hình ảnh</b> hoặc <b>Video ngắn</b> kèm lời thuyết minh riêng. Hệ thống tự động căn chỉnh thời lượng khớp 100% với giọng đọc AI.</div>', unsafe_allow_html=True)
+elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Cử Động Người & Động Vật)":
+    st.markdown('<div class="main-header">🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Cử Động Người & Động Vật)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Tùy biến từng phân cảnh: Chọn <b>Không cử động (Ảnh tĩnh/Video)</b>, <b>Cử động Người nói</b> hoặc <b>Cử động Động vật / Thú cưng nói</b>.</div>', unsafe_allow_html=True)
 
     # 1. Cấu hình chung
-    st.markdown("### ⚙️ 1. Cấu Hình Chung Cho Toàn Bộ Video")
+    st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
     with col_cfg1:
         prod_voice_choice = st.selectbox(
@@ -390,7 +390,7 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video C
         
     with col_cfg3:
         motion_effect = st.selectbox(
-            "Hiệu ứng chuyển động (Chỉ áp dụng với Ảnh):",
+            "Hiệu ứng chuyển cảnh cho cảnh TĨNH (Ken Burns):",
             ["Không sử dụng hiệu ứng", "Zoom In Nhẹ (Phóng to dần)", "Zoom Out Nhẹ (Thu nhỏ dần)"]
         )
 
@@ -403,7 +403,7 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video C
             sub_color = st.color_picker("Màu sắc chữ phụ đề:", "#FFE600")
 
     st.markdown("---")
-    st.markdown("### 🎬 2. Thiết Lập Từng Phân Cảnh (Tải Ảnh Hoặc Video Clip)")
+    st.markdown("### 🎬 2. Thiết Lập Từng Phân Cảnh (Chọn Cử Động Hoặc Tĩnh)")
 
     if "num_scenes_count" not in st.session_state:
         st.session_state["num_scenes_count"] = 3
@@ -431,24 +431,33 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video C
         st.markdown(f'<div class="scene-box">', unsafe_allow_html=True)
         st.markdown(f"#### 📍 Phân Cảnh {i + 1}")
         
-        c_sc1, c_sc2 = st.columns([3, 2])
+        c_sc1, c_sc2, c_sc3 = st.columns([3, 2, 2])
         with c_sc1:
             def_text = default_texts[i % len(default_texts)]
-            sc_text = st.text_area(f"Lời thuyết minh phân cảnh {i + 1}:", value=def_text, key=f"sc_text_{i}", height=100)
+            sc_text = st.text_area(f"Lời thuyết minh cảnh {i + 1}:", value=def_text, key=f"sc_text_{i}", height=110)
         with c_sc2:
-            # Cho phép upload cả ảnh và video
             sc_media = st.file_uploader(
-                f"Tải Ảnh hoặc Video cho cảnh {i + 1}:",
+                f"Tải Ảnh hoặc Video cảnh {i + 1}:",
                 type=["jpg", "jpeg", "png", "mp4", "mov", "avi"],
                 key=f"sc_media_{i}"
             )
             if sc_media:
                 if sc_media.type.startswith("image"):
-                    st.image(sc_media, width=160, caption="Hình ảnh minh họa")
+                    st.image(sc_media, width=140, caption="Hình ảnh cảnh")
                 else:
                     st.video(sc_media)
+        with c_sc3:
+            anim_mode = st.selectbox(
+                f"Chế độ cử động cảnh {i + 1}:",
+                [
+                    "🖼️ Tĩnh (Không cử động / Video thường)",
+                    "🐾 Cử động ĐỘNG VẬT nói (LivePortrait Animal)",
+                    "👤 Cử động NGƯỜI nói (LivePortrait Human)"
+                ],
+                key=f"sc_anim_mode_{i}"
+            )
         
-        scenes_data.append({"text": sc_text, "media": sc_media})
+        scenes_data.append({"text": sc_text, "media": sc_media, "mode": anim_mode})
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
@@ -484,26 +493,60 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video C
                     sc_audio_clip = AudioFileClip(t_audio.name)
                     sc_duration = sc_audio_clip.duration
 
-                    # 2. Xử lý Ảnh hoặc Video tải lên
                     uploaded_file = scene["media"]
+                    anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    if is_video:
-                        # Lưu video tạm
+                    # NẾU CHỌN CỬ ĐỘNG (ĐỘNG VẬT HOẶC NGƯỜI) VÀ LÀ ẢNH -> GỬI SANG GPU TẠO CỬ ĐỘNG
+                    if ("🐾" in anim_choice or "👤" in anim_choice) and not is_video and server_url.strip():
+                        mode_param = "animal" if "🐾" in anim_choice else "human"
+                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động {'Động vật' if mode_param=='animal' else 'Người'} cho Phân Cảnh {idx + 1}...")
+                        
+                        target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
+                        files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
+                        data = {"mode": mode_param}
+                        headers = {
+                            "User-Agent": "Mozilla/5.0",
+                            "ngrok-skip-browser-warning": "true",
+                            "Bypass-Tunnel-Reminder": "true"
+                        }
+                        
+                        resp = requests.post(target_endpoint, files=files, data=data, headers=headers, timeout=600)
+                        if resp.status_code == 200:
+                            t_anim_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+                            t_anim_vid.write(resp.content)
+                            t_anim_vid.close()
+                            
+                            raw_vid = VideoFileClip(t_anim_vid.name)
+                            if raw_vid.duration < sc_duration:
+                                loop_count = math.ceil(sc_duration / raw_vid.duration)
+                                raw_vid = concatenate_videoclips([raw_vid] * loop_count)
+                            raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
+                            sc_composed = raw_vid.set_audio(sc_audio_clip)
+                        else:
+                            # Fallback sang ảnh tĩnh nếu GPU trả lỗi
+                            pil_img = Image.open(uploaded_file).convert("RGB").resize((target_w, target_h), Image.Resampling.LANCZOS)
+                            t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+                            pil_img.save(t_img.name, "JPEG", quality=90)
+                            t_img.close()
+                            sc_composed = ImageClip(t_img.name).set_duration(sc_duration).set_audio(sc_audio_clip)
+                    
+                    # NẾU LÀ VIDEO THƯỜNG
+                    elif is_video:
                         t_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                         t_vid.write(uploaded_file.getvalue())
                         t_vid.close()
 
                         raw_vid = VideoFileClip(t_vid.name)
-                        # Cắt hoặc lặp để vừa khít thời lượng giọng đọc
                         if raw_vid.duration < sc_duration:
                             loop_count = math.ceil(sc_duration / raw_vid.duration)
                             raw_vid = concatenate_videoclips([raw_vid] * loop_count)
                         
                         raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
                         sc_composed = raw_vid.set_audio(sc_audio_clip)
+                    
+                    # NẾU LÀ ẢNH TĨNH (KHÔNG CỬ ĐỘNG)
                     else:
-                        # Xử lý hình ảnh
                         pil_img = Image.open(uploaded_file).convert("RGB")
                         pil_img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
                         t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
@@ -586,13 +629,13 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Ảnh & Video C
                 with open(out_vid_path, "rb") as vf:
                     final_bytes = vf.read()
 
-                st.success("🎉 Video hoàn chỉnh từ các phân cảnh (Ảnh/Video) đã xuất bản thành công!")
+                st.success("🎉 Video hoàn chỉnh từ các phân cảnh (Có cử động) đã xuất bản thành công!")
                 st.video(final_bytes)
 
                 st.download_button(
                     label="⬇️ TẢI VIDEO HOÀN CHỈNH (MP4)",
                     data=final_bytes,
-                    file_name="multi_scene_final_video.mp4",
+                    file_name="multi_scene_animated_video.mp4",
                     mime="video/mp4",
                     use_container_width=True
                 )
