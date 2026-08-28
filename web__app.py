@@ -40,29 +40,10 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #1976D2;
-        margin-bottom: 0.2rem;
-    }
-    .sub-header {
-        font-size: 1.05rem;
-        color: #4B5563;
-        margin-bottom: 1.5rem;
-    }
-    .scene-box {
-        background-color: #F8FAFC;
-        border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-    }
-    .stButton>button {
-        border-radius: 8px;
-        font-weight: 600;
-        height: 3em;
-    }
+    .main-header { font-size: 2.1rem; font-weight: 800; color: #1976D2; margin-bottom: 0.2rem; }
+    .sub-header { font-size: 1rem; color: #4B5563; margin-bottom: 1.2rem; }
+    .scene-box { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    .stButton>button { border-radius: 8px; font-weight: 600; height: 2.8em; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -70,15 +51,14 @@ st.markdown("""
 # 2. THANH CÔNG CỤ SIDEBAR
 # ==============================================================================
 with st.sidebar:
-    st.image("https://img.icons8.com/clouds/200/video-editing.png", width=110)
-    st.title("⚙️ TRUNG TÂM ĐIỀU KHIỂN")
+    st.image("https://img.icons8.com/clouds/200/video-editing.png", width=90)
+    st.title("⚙️ ĐIỀU KHIỂN")
     
-    st.markdown("### 🔌 Kết Nối Máy Chủ GPU")
     server_url = st.text_input(
         "GPU Server URL (Ngrok):",
         value="",
         placeholder="https://xxxx.ngrok-free.app",
-        help="Dán URL tunnel được cung cấp từ Kaggle Notebook vào đây."
+        help="Dán link GPU từ Kaggle vào đây."
     )
     
     col_ping1, col_ping2 = st.columns([1, 1])
@@ -108,26 +88,22 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    st.markdown("### 🔑 Khóa Google AI Studio")
     gemini_key = st.text_input(
         "Gemini API Key:",
         type="password",
         value="",
-        help="Nhập API Key để mở khóa trợ lý viết kịch bản thông minh."
+        help="Nhập API Key để mở khóa trợ lý viết kịch bản."
     )
     
     st.markdown("---")
     menu_choice = st.radio(
-        "📌 CHỌN PHÂN HỆ LÀM VIỆC:",
+        "📌 CHỌN PHÂN HỆ:",
         [
             "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)",
             "2. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)"
         ]
     )
 
-# ==============================================================================
-# HÀM BỔ TRỢ GEMINI
-# ==============================================================================
 def call_gemini_smart_generator(api_key, prompt_text):
     genai.configure(api_key=api_key)
     available_models = []
@@ -154,11 +130,11 @@ def call_gemini_smart_generator(api_key, prompt_text):
     raise Exception("Mô hình không trả về nội dung.")
 
 # ==============================================================================
-# PHÂN HỆ 1: XƯỞNG SẢN XUẤT VIDEO PHÂN CẢNH (2 CHẾ ĐỘ HOẠT HỌA)
+# PHÂN HỆ 1: XƯỞNG SẢN XUẤT VIDEO PHÂN CẢNH
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Mỗi phân cảnh hỗ trợ đúng 2 chế độ: <b>1. Ghép phụ đề và hình tĩnh (hoặc Video thường)</b> hoặc <b>2. Nhân vật/Động vật/Người vừa chuyển động vừa nói theo văn bản</b>.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Mỗi phân cảnh hỗ trợ đúng 2 chế độ: <b>1. Ghép phụ đề và hình tĩnh</b> hoặc <b>2. Nhân vật/Động vật chớp mắt, há miệng, biểu cảm cử động sống động</b>.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -180,8 +156,8 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         ratio_choice = st.selectbox(
             "Tỷ lệ khung hình video:",
             [
-                "9:16 Dọc (TikTok, Shorts, Reels) - Tối ưu di động",
-                "16:9 Ngang (YouTube, Facebook, Web) - Tối ưu máy tính",
+                "9:16 Dọc (TikTok, Shorts, Reels) - Xem trên điện thoại",
+                "16:9 Ngang (YouTube, Facebook, Web) - Xem trên máy tính",
                 "1:1 Vuông (Instagram Post)"
             ]
         )
@@ -197,7 +173,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         sub_toggle = st.checkbox("Chèn phụ đề tiếng Việt tự động cho từng cảnh", value=True)
     with col_sub2:
         if sub_toggle:
-            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=20, max_value=50, value=32, step=2)
+            sub_font_size = st.slider("Cỡ chữ phụ đề:", min_value=20, max_value=50, value=30, step=2)
             sub_color = st.color_picker("Màu sắc chữ phụ đề:", "#FFE600")
 
     st.markdown("---")
@@ -232,7 +208,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         c_sc1, c_sc2, c_sc3 = st.columns([3, 2, 2])
         with c_sc1:
             def_text = default_texts[i % len(default_texts)]
-            sc_text = st.text_area(f"Lời thuyết minh cảnh {i + 1}:", value=def_text, key=f"sc_text_{i}", height=110)
+            sc_text = st.text_area(f"Lời thuyết minh cảnh {i + 1}:", value=def_text, key=f"sc_text_{i}", height=100)
         with c_sc2:
             sc_media = st.file_uploader(
                 f"Tải Ảnh hoặc Video cảnh {i + 1}:",
@@ -241,7 +217,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
             )
             if sc_media:
                 if sc_media.type.startswith("image"):
-                    st.image(sc_media, width=140, caption="Hình ảnh cảnh")
+                    st.image(sc_media, width=90, caption="Ảnh cảnh")
                 else:
                     st.video(sc_media)
         with c_sc3:
@@ -249,7 +225,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 f"Chế độ hoạt họa cảnh {i + 1}:",
                 [
                     "🖼️ 1. Ghép phụ đề và hình tĩnh (hoặc Video thường)",
-                    "🌟 2. Nhân vật/Động vật/Người vừa chuyển động vừa nói theo văn bản"
+                    "🎭 2. Nhân vật/Động vật cử động mắt, miệng, biểu cảm sống động"
                 ],
                 key=f"sc_anim_mode_{i}"
             )
@@ -294,8 +270,8 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG TOÀN THÂN VÀ NÓI THEO VĂN BẢN (GỬI SANG GPU)
-                    if "🌟" in anim_choice and not is_video:
+                    # CHẾ ĐỘ 2: LIVEPORTRAIT CHỚP MẮT, HÁ MIỆNG, CỬ ĐỘNG (GỬI SANG GPU)
+                    if "🎭" in anim_choice and not is_video:
                         if not server_url.strip():
                             st.error(f"❌ Cảnh {idx + 1} yêu cầu AI chuyển động nhưng chưa có GPU Server URL!")
                             st.stop()
@@ -307,7 +283,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             "Bypass-Tunnel-Reminder": "true"
                         }
                         
-                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo chuyển động & cử chỉ cho Cảnh {idx + 1}...")
+                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tái tạo cử động mắt, miệng và cơ mặt cho Cảnh {idx + 1}...")
                         files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
                         resp = requests.post(target_endpoint, files=files, headers=headers, timeout=600)
 
@@ -323,10 +299,10 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
                             sc_composed = raw_vid.set_audio(sc_audio_clip)
                         else:
-                            st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU không thể xử lý (Lỗi {resp.status_code}). Chi tiết: {resp.text}")
+                            st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU báo lỗi: {resp.text}")
                             st.stop()
                     
-                    # NẾU LÀ VIDEO CLIP SẴN CÓ
+                    # NẾU LÀ VIDEO SẴN CÓ
                     elif is_video:
                         t_vid = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                         t_vid.write(uploaded_file.getvalue())
@@ -340,7 +316,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                         raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
                         sc_composed = raw_vid.set_audio(sc_audio_clip)
                     
-                    # CHẾ ĐỘ 1: GHÉP PHỤ ĐỀ VÀ HÌNH TĨNH (KHÔNG QUA GPU)
+                    # CHẾ ĐỘ 1: ẢNH TĨNH
                     else:
                         pil_img = Image.open(uploaded_file).convert("RGB")
                         pil_img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
@@ -357,7 +333,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                         sc_composed = sc_img_clip.set_audio(sc_audio_clip)
 
-                    # 3. Chèn phụ đề theo lời thoại (Căn vùng an toàn tránh bị che trên YouTube/Facebook)
+                    # 3. Phụ đề tự động
                     if sub_toggle:
                         current_sub_text = scene["text"].replace("\n", " ")
 
@@ -389,7 +365,6 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             text_w = bbox[2] - bbox[0]
                             text_h = bbox[3] - bbox[1]
                             pos_x = (target_w - text_w) // 2
-                            # Đặt khoảng cách an toàn so với đáy (120px cho 9:16 và 60px cho 16:9)
                             bottom_margin = 120 if target_h > target_w else 60
                             pos_y = target_h - text_h - bottom_margin
 
@@ -406,7 +381,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                     scene_video_clips.append(sc_final_clip)
 
-                # 4. Nối tất cả các phân cảnh thành video hoàn chỉnh
+                # 4. Nối video
                 progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh thành video hoàn chỉnh...")
                 final_full_video = concatenate_videoclips(scene_video_clips, method="compose")
 
@@ -435,20 +410,23 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 progress_bar.empty()
                 st.error(f"❌ Xảy ra lỗi trong quá trình sản xuất video phân cảnh: {e}")
 
-    # Hiển thị video bền vững từ session_state (chống mất video khi bấm nút)
+    # Hiển thị video thành phẩm
     if "rendered_final_video" in st.session_state and st.session_state["rendered_final_video"]:
-        st.success("🎉 Video hoàn chỉnh từ các phân cảnh đã xuất bản thành công!")
-        st.video(st.session_state["rendered_final_video"])
-        st.download_button(
-            label="⬇️ TẢI VIDEO HOÀN CHỈNH (MP4)",
-            data=st.session_state["rendered_final_video"],
-            file_name="social_video_output.mp4",
-            mime="video/mp4",
-            use_container_width=True
-        )
+        st.success("🎉 Video hoàn chỉnh đã xuất bản thành công!")
+        
+        col_v1, col_v2, col_v3 = st.columns([1, 1.4, 1])
+        with col_v2:
+            st.video(st.session_state["rendered_final_video"])
+            st.download_button(
+                label="⬇️ TẢI VIDEO HOÀN CHỈNH (MP4)",
+                data=st.session_state["rendered_final_video"],
+                file_name="social_video_output.mp4",
+                mime="video/mp4",
+                use_container_width=True
+            )
 
 # ==============================================================================
-# PHÂN HỆ 2: TRỢ LÝ VIẾT KỊCH BẢN PHÂN CẢNH GEMINI
+# PHÂN HỆ 2: TRỢ LÝ VIẾT KỊCH BẢN GEMINI
 # ==============================================================================
 elif menu_choice == "2. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
     st.markdown('<div class="main-header">✨ Trợ Lý Sáng Tạo Kịch Bản Phân Cảnh (Gemini Studio)</div>', unsafe_allow_html=True)
