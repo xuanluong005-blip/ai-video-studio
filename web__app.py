@@ -28,7 +28,7 @@ from moviepy.editor import (
 )
 
 # ==============================================================================
-# 1. CẤU HÌNH GIAO DIỆN
+# 1. CẤU HÌNH GIAO DIỆN HỆ THỐNG
 # ==============================================================================
 st.set_page_config(
     page_title="AI Creative Studio Super Pro Max",
@@ -154,7 +154,7 @@ def call_gemini_smart_generator(api_key, prompt_text):
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Mỗi phân cảnh hỗ trợ đúng 2 chế độ: <b>1. Ghép phụ đề và hình tĩnh (hoặc Video thường)</b> hoặc <b>2. Nhân vật/Động vật cử động sống động</b>.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Kết hợp <b>di chuyển thân thể liên tục</b> và <b>mở khẩu hình nói theo từng nhịp lời thoại</b>.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -184,7 +184,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
     with col_cfg3:
         motion_effect = st.selectbox(
             "Hiệu ứng chuyển cảnh cho cảnh TĨNH (Ken Burns):",
-            ["Không sử dụng hiệu ứng", "Zoom In Nhẹ (Phóng to dần)", "Zoom Out Nhẹ (Thu nhỏ dần)"]
+            ["Di chuyển tiến chậm một chiều", "Zoom In Nhẹ", "Zoom Out Nhẹ"]
         )
 
     col_sub1, col_sub2 = st.columns(2)
@@ -244,7 +244,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 f"Chế độ hoạt họa cảnh {i + 1}:",
                 [
                     "🖼️ 1. Ghép phụ đề và hình tĩnh (hoặc Video thường)",
-                    "🌟 2. Nhân vật/Động vật cử động sống động"
+                    "🌟 2. Nhân vật/Động vật vừa di chuyển vừa nói theo văn bản"
                 ],
                 key=f"sc_anim_mode_{i}"
             )
@@ -278,7 +278,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     pct = int(10 + (idx / total_scenes) * 70)
                     progress_bar.progress(pct, text=f"⏳ Đang xử lý Phân Cảnh {idx + 1}/{total_scenes}...")
 
-                    # 1. Tạo audio
+                    # 1. Âm thanh giọng đọc
                     comm = edge_tts.Communicate(scene["text"], selected_prod_voice)
                     t_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
                     asyncio.run(comm.save(t_audio.name))
@@ -289,7 +289,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG SỐNG ĐỘNG
+                    # CHẾ ĐỘ 2: VỪA DI CHUYỂN VỪA KHỚP KHẨU HÌNH
                     if "🌟" in anim_choice and not is_video:
                         if not server_url.strip():
                             st.error(f"❌ Cảnh {idx + 1} yêu cầu GPU nhưng chưa nhập Server URL!")
@@ -298,9 +298,10 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                         target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
                         headers = {"User-Agent": "Mozilla/5.0", "ngrok-skip-browser-warning": "true"}
                         
-                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang xử lý chuyển động Cảnh {idx + 1}...")
+                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo chuyển động & khớp giọng nói Cảnh {idx + 1}...")
                         files = {
-                            "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")
+                            "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg"),
+                            "audio": ("voice.wav", open(t_audio.name, "rb"), "audio/wav")
                         }
                         resp = requests.post(target_endpoint, files=files, headers=headers, timeout=600)
 
@@ -345,14 +346,16 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                         sc_img_clip = ImageClip(t_img.name).set_duration(sc_duration)
 
-                        if motion_effect == "Zoom In Nhẹ (Phóng to dần)":
+                        if motion_effect == "Di chuyển tiến chậm một chiều":
                             sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.0 + 0.04 * (t / sc_duration))
-                        elif motion_effect == "Zoom Out Nhẹ (Thu nhỏ dần)":
+                        elif motion_effect == "Zoom In Nhẹ":
+                            sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.0 + 0.03 * (t / sc_duration))
+                        else:
                             sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.04 - 0.04 * (t / sc_duration))
 
                         sc_composed = sc_img_clip.set_audio(sc_audio_clip)
 
-                    # 3. Phụ đề tự động
+                    # 3. Phụ đề tiếng Việt tự động
                     if sub_toggle:
                         current_sub_text = scene["text"].replace("\n", " ")
 
@@ -400,8 +403,8 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                     scene_video_clips.append(sc_final_clip)
 
-                # 4. Nối video hoàn chỉnh
-                progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh...")
+                # 4. Ghép toàn bộ thành video hoàn chỉnh
+                progress_bar.progress(85, text="⏳ Đang xuất video hoàn chỉnh...")
                 final_full_video = concatenate_videoclips(scene_video_clips, method="compose")
 
                 out_vid_path = os.path.join(tempfile.gettempdir(), f"final_output_{int(time.time())}.mp4")
@@ -416,7 +419,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     logger=None
                 )
 
-                progress_bar.progress(100, text="✅ Hoàn tất!")
+                progress_bar.progress(100, text="✅ Hoàn tất render!")
 
                 with open(out_vid_path, "rb") as vf:
                     st.session_state["rendered_final_video"] = vf.read()
@@ -427,7 +430,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
             except Exception as e:
                 progress_bar.empty()
-                st.error(f"❌ Xảy ra lỗi trong quá trình sản xuất video phân cảnh: {e}")
+                st.error(f"❌ Xảy ra lỗi trong quá trình sản xuất: {e}")
 
     # Hiển thị video thành phẩm
     if "rendered_final_video" in st.session_state and st.session_state["rendered_final_video"]:
