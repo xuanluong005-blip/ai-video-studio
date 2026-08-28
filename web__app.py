@@ -314,7 +314,7 @@ elif menu_choice == "2. 🎙️ Phòng Thu Giọng Nói AI (Edge-TTS)":
 # ==============================================================================
 # 3. TRỢ LÝ VIẾT KỊCH BẢN PHÂN CẢNH GEMINI
 # ==============================================================================
-elif menu_choice == "3. ✨ Trợ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
+elif menu_choice == "3. ✨ TrỢ Lý Viết Kịch Bản Phân Cảnh (Gemini)":
     st.markdown('<div class="main-header">✨ Trợ Lý Sáng Tạo Kịch Bản Phân Cảnh (Gemini Studio)</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Tự động biên soạn kịch bản chia rõ từng công đoạn/phân cảnh (Scene 1, Scene 2, Scene 3...) để dễ dàng ghép ảnh hoặc video tương ứng.</div>', unsafe_allow_html=True)
 
@@ -372,7 +372,6 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn C�
     st.markdown('<div class="main-header">🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn Cử Động Người & Động Vật)</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Tùy biến từng phân cảnh: Chọn <b>Không cử động (Ảnh tĩnh/Video)</b>, <b>Cử động Người nói</b> hoặc <b>Cử động Động vật / Thú cưng nói</b>.</div>', unsafe_allow_html=True)
 
-    # 1. Cấu hình chung
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
     with col_cfg1:
@@ -497,10 +496,14 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn C�
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # NẾU CHỌN CỬ ĐỘNG (ĐỘNG VẬT HOẶC NGƯỜI) VÀ LÀ ẢNH -> GỬI SANG GPU TẠO CỬ ĐỘNG
-                    if ("🐾" in anim_choice or "👤" in anim_choice) and not is_video and server_url.strip():
+                    # NẾU CHỌN CỬ ĐỘNG (ĐỘNG VẬT HOẶC NGƯỜI) VÀ LÀ ẢNH -> GỬI SANG GPU
+                    if ("🐾" in anim_choice or "👤" in anim_choice) and not is_video:
+                        if not server_url.strip():
+                            st.error(f"❌ Cảnh {idx + 1} được yêu cầu cử động nhưng chưa có GPU Server URL!")
+                            return
+                            
                         mode_param = "animal" if "🐾" in anim_choice else "human"
-                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động {'Động vật' if mode_param=='animal' else 'Người'} cho Phân Cảnh {idx + 1}...")
+                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang tạo cử động {'Động vật' if mode_param=='animal' else 'Người'} cho Cảnh {idx + 1}...")
                         
                         target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
                         files = {"image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")}
@@ -524,12 +527,8 @@ elif menu_choice == "4. 🎞️ Sản Xuất Video Phân Cảnh (Tùy Chọn C�
                             raw_vid = raw_vid.subclip(0, sc_duration).resize(newsize=(target_w, target_h))
                             sc_composed = raw_vid.set_audio(sc_audio_clip)
                         else:
-                            # Fallback sang ảnh tĩnh nếu GPU trả lỗi
-                            pil_img = Image.open(uploaded_file).convert("RGB").resize((target_w, target_h), Image.Resampling.LANCZOS)
-                            t_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                            pil_img.save(t_img.name, "JPEG", quality=90)
-                            t_img.close()
-                            sc_composed = ImageClip(t_img.name).set_duration(sc_duration).set_audio(sc_audio_clip)
+                            st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU không thể tạo cử động (Lỗi {resp.status_code}). Chi tiết: {resp.text}")
+                            return
                     
                     # NẾU LÀ VIDEO THƯỜNG
                     elif is_video:
