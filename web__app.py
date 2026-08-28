@@ -141,7 +141,7 @@ if feature_choice == "🚀 Ghép Cử Động Thật 100% (GPU Colab Tự Độn
                 }
 
                 status.write("🧠 GPU đang phân tích và render video (khoảng 30-60 giây)...")
-                response = requests.post(target_api, files=files, headers=headers, timeout=240)
+                response = requests.post(target_api, files=files, headers=headers, timeout=600)
 
                 if response.status_code == 200:
                     st.session_state['colab_rendered_video'] = response.content
