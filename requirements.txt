@@ -1,8 +1,9 @@
 streamlit
-google-genai
-pillow
-moviepy>=2.0.0
+google-generativeai
 edge-tts
+moviepy==1.0.3
+imageio
+imageio-ffmpeg
 requests
 numpy
-pillow-heif
+Pillow
