@@ -30,8 +30,8 @@ st.set_page_config(page_title="AI Studio Ultimate Pro", page_icon="🎬", layout
 # ==========================================================
 # ⚙️ CẤU HÌNH GẮN CỐ ĐỊNH LINK SERVER GPU (KHÔNG CẦN NHẬP TAY)
 # ==========================================================
-# Thay bằng Domain Ngrok cố định của bạn (ví dụ: https://my-ai-server.ngrok-free.app)
-COLAB_SERVER_URL = "https://your-domain.ngrok-free.app"
+# Gắn cố định Domain của bạn (có kèm https:// ở đầu):
+COLAB_SERVER_URL = "https://stoppable-unrivaled-driver.ngrok-free.dev"
 
 def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-flash"):
     candidate_models = [
