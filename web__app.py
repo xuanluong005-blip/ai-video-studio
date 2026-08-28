@@ -7,6 +7,7 @@ import tempfile
 import urllib.parse
 import requests
 import numpy as np
+import nest_asyncio
 from google import genai
 from google.genai import types
 from moviepy import (
@@ -25,12 +26,14 @@ try:
 except Exception:
     pass
 
+# Kích hoạt nest_asyncio để chống xung đột event loop trong Streamlit
+nest_asyncio.apply()
+
 st.set_page_config(page_title="AI Studio Ultimate Pro", page_icon="🎬", layout="centered")
 
 # ==========================================================
-# ⚙️ CẤU HÌNH GẮN CỐ ĐỊNH LINK SERVER GPU (KHÔNG CẦN NHẬP TAY)
+# ⚙️ CẤU HÌNH GẮN CỐ ĐỊNH LINK SERVER GPU COLAB
 # ==========================================================
-# Gắn cố định Domain của bạn (có kèm https:// ở đầu):
 COLAB_SERVER_URL = "https://stoppable-unrivaled-driver.ngrok-free.dev"
 
 def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-flash"):
@@ -53,6 +56,23 @@ def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-f
                 last_err = e
                 time.sleep(1.2)
     raise last_err
+
+def run_async(coro):
+    """Hàm chạy coroutine an toàn, không bị lỗi lồng event loop"""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coro)
+
+async def _create_voice_async(text, voice_choice, output_path):
+    voice_id = "vi-VN-HoaiMyNeural" if "Hoài My" in voice_choice else "vi-VN-NamMinhNeural"
+    communicate = edge_tts.Communicate(text, voice_id)
+    await communicate.save(output_path)
+
+def create_voice(text, voice_choice, output_path):
+    return run_async(_create_voice_async(text, voice_choice, output_path))
 
 BANNER_URLS = {
     "HERO": "https://image.pollinations.ai/prompt/Futuristic%20creative%20AI%20video%20and%20music%20production%20studio,%20glowing%20neon%20holograms,%20Super%20Saiyan%20energy%20and%20dancing%20characters,%20ultra%20vibrant%203D%20cinematic%20digital%20art,%208k%20masterpiece?width=1200&height=400&model=flux&seed=777&nologo=true",
@@ -92,7 +112,7 @@ feature_choice = st.radio(
 st.markdown("---")
 
 # ==========================================================
-# 1. GHÉP CỬ ĐỘNG THẬT 100% (GẮN CỐ ĐỊNH SERVER)
+# 1. GHÉP CỬ ĐỘNG THẬT 100% (GPU COLAB TỰ ĐỘNG)
 # ==========================================================
 if feature_choice == "🚀 Ghép Cử Động Thật 100% (GPU Colab Tự Động)":
     st.image(BANNER_URLS["COLAB"], caption="⚡ GPU Cloud Server: Tự Động Render Cử Động Cơ Mặt, Mắt, Miệng Thật 100%", use_container_width=True)
@@ -361,11 +381,6 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)":
 
     topic = st.text_input("💡 Chủ đề Video:", placeholder="VD: 3 thói quen giúp ngủ ngon hơn...", key="topic_vid")
 
-    async def create_voice(text, voice_choice, output_path):
-        voice_id = "vi-VN-HoaiMyNeural" if "Hoài My" in voice_choice else "vi-VN-NamMinhNeural"
-        communicate = edge_tts.Communicate(text, voice_id)
-        await communicate.save(output_path)
-
     if st.button("🚀 BẮT ĐẦU TẠO VIDEO", use_container_width=True, key="btn_create_vid"):
         if not api_key or not uploaded_files or not topic:
             st.error("⚠️ Vui lòng nhập đầy đủ API Key, ảnh và chủ đề video!")
@@ -388,7 +403,7 @@ elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)":
                         txt = lines[idx] if idx < len(lines) else f"Nội dung minh họa số {idx+1}."
                         
                         a_path = os.path.join(td, f"v_{idx}.mp3")
-                        asyncio.run(create_voice(txt, voice_option, a_path))
+                        create_voice(txt, voice_option, a_path)
 
                         img_path = os.path.join(td, f"img_{idx}.jpg")
                         im = Image.open(f).convert("RGB").resize(target_size, Image.Resampling.LANCZOS)
