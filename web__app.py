@@ -28,7 +28,7 @@ from moviepy.editor import (
 )
 
 # ==============================================================================
-# 1. CẤU HÌNH GIAO DIỆN HỆ THỐNG
+# 1. CẤU HÌNH GIAO DIỆN
 # ==============================================================================
 st.set_page_config(
     page_title="AI Creative Studio Super Pro Max",
@@ -47,37 +47,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# ĐỘNG CƠ DI CHUYỂN LIÊN TỤC KHÔNG GIẬT LÙI (CINEMATIC CONTINUOUS MOTION)
+# HÀM BẢO TOÀN KHUNG HÌNH (KHÔNG MÉO & KHÔNG MẤT ĐẦU/MẶT)
 # ==============================================================================
-def make_continuous_walking_video(clip, target_duration, target_w, target_h):
-    """
-    Tạo hiệu ứng di chuyển tiến liên tục không giật ngược:
-    1. Đảo chiều mềm giữa các chu kỳ để chuyển động chân/thân luôn liền mạch.
-    2. Áp dụng hiệu ứng lia máy một chiều nhẹ nhàng (Camera Tracking) tạo cảm giác tiến bước.
-    """
-    rev_clip = clip.fx(vfx.time_mirror)
-    pair = concatenate_videoclips([clip, rev_clip])
-    
-    repeat_count = math.ceil(target_duration / pair.duration) + 1
-    extended = concatenate_videoclips([pair] * repeat_count).subclip(0, target_duration)
-    
-    # Scale vừa vặn bảo vệ chủ thể ở giữa
-    scale_fg = min(target_w / extended.w, target_h / extended.h)
-    fg = extended.resize(scale_fg).set_position("center")
-    
-    # Tạo nền mờ trôi nhẹ phía sau
-    scale_bg = max(target_w / extended.w, target_h / extended.h) * 1.08
-    bg = extended.resize(scale_bg).crop(x_center=extended.w*scale_bg/2, y_center=extended.h*scale_bg/2, width=target_w, height=target_h)
-    
-    def blur_frame(frame):
-        im = Image.fromarray(frame).filter(ImageFilter.GaussianBlur(radius=18))
-        return np.array(im)
-        
-    bg = bg.fl_image(blur_frame)
-    return CompositeVideoClip([bg, fg], size=(target_w, target_h)).set_duration(target_duration)
-
 def fit_image_to_canvas(pil_img, target_w, target_h):
-    """Giữ nguyên 100% con vật ở giữa không mất đầu, lót nền mờ phía sau."""
     orig_w, orig_h = pil_img.size
     
     scale_bg = max(target_w / orig_w, target_h / orig_h)
@@ -96,6 +68,20 @@ def fit_image_to_canvas(pil_img, target_w, target_h):
     pos_y = (target_h - fg_h) // 2
     bg_blur.paste(fg_img, (pos_x, pos_y))
     return bg_blur
+
+def compose_fitted_video(clip, target_w, target_h):
+    scale_fg = min(target_w / clip.w, target_h / clip.h)
+    fg = clip.resize(scale_fg).set_position("center")
+    
+    scale_bg = max(target_w / clip.w, target_h / clip.h)
+    bg = clip.resize(scale_bg).crop(x_center=clip.w*scale_bg/2, y_center=clip.h*scale_bg/2, width=target_w, height=target_h)
+    
+    def blur_frame(frame):
+        im = Image.fromarray(frame).filter(ImageFilter.GaussianBlur(radius=15))
+        return np.array(im)
+        
+    bg = bg.fl_image(blur_frame)
+    return CompositeVideoClip([bg, fg], size=(target_w, target_h)).set_duration(clip.duration)
 
 # ==============================================================================
 # 2. THANH CÔNG CỤ SIDEBAR
@@ -168,7 +154,7 @@ def call_gemini_smart_generator(api_key, prompt_text):
 # ==============================================================================
 if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Diện)":
     st.markdown('<div class="main-header">🎞️ Xưởng Sản Xuất Video Phân Cảnh Toàn Diện</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Tự động kết hợp <b>di chuyển thân thể liên tục</b>, biểu cảm tự nhiên và phụ đề chuẩn khớp giọng đọc.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Mỗi phân cảnh hỗ trợ đúng 2 chế độ: <b>1. Ghép phụ đề và hình tĩnh (hoặc Video thường)</b> hoặc <b>2. Nhân vật/Động vật cử động sống động</b>.</div>', unsafe_allow_html=True)
 
     st.markdown("### ⚙️ 1. Cấu Hình Chung Toàn Video")
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
@@ -197,12 +183,8 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
         
     with col_cfg3:
         motion_effect = st.selectbox(
-            "Chế độ di chuyển cho cảnh TĨNH (Camera Panning):",
-            [
-                "Di chuyển tiến chậm một chiều (Smooth Forward)",
-                "Lia máy ngang mềm mại (Cinematic Pan)",
-                "Thu phóng chậm (Smooth Zoom)"
-            ]
+            "Hiệu ứng chuyển cảnh cho cảnh TĨNH (Ken Burns):",
+            ["Không sử dụng hiệu ứng", "Zoom In Nhẹ (Phóng to dần)", "Zoom Out Nhẹ (Thu nhỏ dần)"]
         )
 
     col_sub1, col_sub2 = st.columns(2)
@@ -262,7 +244,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                 f"Chế độ hoạt họa cảnh {i + 1}:",
                 [
                     "🖼️ 1. Ghép phụ đề và hình tĩnh (hoặc Video thường)",
-                    "🚶 2. Nhân vật/Động vật di chuyển và cử động liên tục tự nhiên"
+                    "🌟 2. Nhân vật/Động vật cử động sống động"
                 ],
                 key=f"sc_anim_mode_{i}"
             )
@@ -296,7 +278,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     pct = int(10 + (idx / total_scenes) * 70)
                     progress_bar.progress(pct, text=f"⏳ Đang xử lý Phân Cảnh {idx + 1}/{total_scenes}...")
 
-                    # 1. Âm thanh giọng đọc
+                    # 1. Tạo audio
                     comm = edge_tts.Communicate(scene["text"], selected_prod_voice)
                     t_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
                     asyncio.run(comm.save(t_audio.name))
@@ -307,19 +289,18 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     anim_choice = scene["mode"]
                     is_video = uploaded_file.type.startswith("video") or uploaded_file.name.lower().endswith((".mp4", ".mov", ".avi"))
 
-                    # CHẾ ĐỘ 2: DI CHUYỂN THÂN THỂ VÀ BƯỚC ĐI TỰ NHIÊN
-                    if "🚶" in anim_choice and not is_video:
+                    # CHẾ ĐỘ 2: CHUYỂN ĐỘNG SỐNG ĐỘNG
+                    if "🌟" in anim_choice and not is_video:
                         if not server_url.strip():
-                            st.error(f"❌ Cảnh {idx + 1} yêu cầu AI di chuyển nhưng chưa có GPU Server URL!")
+                            st.error(f"❌ Cảnh {idx + 1} yêu cầu GPU nhưng chưa nhập Server URL!")
                             st.stop()
                             
                         target_endpoint = f"{server_url.strip().rstrip('/')}/animate_scene"
                         headers = {"User-Agent": "Mozilla/5.0", "ngrok-skip-browser-warning": "true"}
                         
-                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang mô phỏng bước đi và chuyển động cho Cảnh {idx + 1}...")
+                        progress_bar.progress(pct + 2, text=f"⏳ GPU đang xử lý chuyển động Cảnh {idx + 1}...")
                         files = {
-                            "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg"),
-                            "audio": ("voice.wav", open(t_audio.name, "rb"), "audio/wav")
+                            "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "image/jpeg")
                         }
                         resp = requests.post(target_endpoint, files=files, headers=headers, timeout=600)
 
@@ -329,11 +310,15 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                             t_anim_vid.close()
                             
                             raw_vid = VideoFileClip(t_anim_vid.name)
-                            # Áp dụng bộ lọc di chuyển liên tục một chiều không lùi lại
-                            walking_composed = make_continuous_walking_video(raw_vid, sc_duration, target_w, target_h)
-                            sc_composed = walking_composed.set_audio(sc_audio_clip)
+                            if raw_vid.duration < sc_duration:
+                                loop_count = math.ceil(sc_duration / raw_vid.duration)
+                                raw_vid = concatenate_videoclips([raw_vid] * loop_count)
+                            raw_vid = raw_vid.subclip(0, sc_duration)
+                            
+                            composed_video = compose_fitted_video(raw_vid, target_w, target_h)
+                            sc_composed = composed_video.set_audio(sc_audio_clip)
                         else:
-                            st.error(f"❌ Cảnh {idx + 1}: Máy chủ GPU báo lỗi: {resp.text}")
+                            st.error(f"❌ Cảnh {idx + 1}: GPU báo lỗi: {resp.text}")
                             st.stop()
                     
                     # NẾU LÀ VIDEO GỐC
@@ -343,10 +328,14 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                         t_vid.close()
 
                         raw_vid = VideoFileClip(t_vid.name)
-                        walking_composed = make_continuous_walking_video(raw_vid, sc_duration, target_w, target_h)
-                        sc_composed = walking_composed.set_audio(sc_audio_clip)
+                        if raw_vid.duration < sc_duration:
+                            loop_count = math.ceil(sc_duration / raw_vid.duration)
+                            raw_vid = concatenate_videoclips([raw_vid] * loop_count)
+                        raw_vid = raw_vid.subclip(0, sc_duration)
+                        composed_video = compose_fitted_video(raw_vid, target_w, target_h)
+                        sc_composed = composed_video.set_audio(sc_audio_clip)
                     
-                    # CHẾ ĐỘ 1: ẢNH TĨNH VỚI HIỆU ỨNG TRÔI TIẾN MỘT CHIỀU
+                    # CHẾ ĐỘ 1: ẢNH TĨNH
                     else:
                         pil_img = Image.open(uploaded_file).convert("RGB")
                         fitted_img = fit_image_to_canvas(pil_img, target_w, target_h)
@@ -356,16 +345,14 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
 
                         sc_img_clip = ImageClip(t_img.name).set_duration(sc_duration)
 
-                        if motion_effect == "Di chuyển tiến chậm một chiều (Smooth Forward)":
+                        if motion_effect == "Zoom In Nhẹ (Phóng to dần)":
                             sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.0 + 0.04 * (t / sc_duration))
-                        elif motion_effect == "Lia máy ngang mềm mại (Cinematic Pan)":
-                            sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.03).set_position(lambda t: (int(-15 * (t / sc_duration)), 'center'))
-                        else:
+                        elif motion_effect == "Zoom Out Nhẹ (Thu nhỏ dần)":
                             sc_img_clip = sc_img_clip.fx(vfx.resize, lambda t: 1.04 - 0.04 * (t / sc_duration))
 
                         sc_composed = sc_img_clip.set_audio(sc_audio_clip)
 
-                    # 3. Phụ đề tiếng Việt chuẩn Safe Zone
+                    # 3. Phụ đề tự động
                     if sub_toggle:
                         current_sub_text = scene["text"].replace("\n", " ")
 
@@ -414,7 +401,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     scene_video_clips.append(sc_final_clip)
 
                 # 4. Nối video hoàn chỉnh
-                progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh thành video hoàn chỉnh...")
+                progress_bar.progress(85, text="⏳ Đang ghép nối các phân cảnh...")
                 final_full_video = concatenate_videoclips(scene_video_clips, method="compose")
 
                 out_vid_path = os.path.join(tempfile.gettempdir(), f"final_output_{int(time.time())}.mp4")
@@ -429,7 +416,7 @@ if menu_choice == "1. 🎞️ Xưởng Sản Xuất Video Phân Cảnh (Toàn Di
                     logger=None
                 )
 
-                progress_bar.progress(100, text="✅ Render thành công tất cả các phân cảnh!")
+                progress_bar.progress(100, text="✅ Hoàn tất!")
 
                 with open(out_vid_path, "rb") as vf:
                     st.session_state["rendered_final_video"] = vf.read()
