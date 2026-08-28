@@ -87,7 +87,7 @@ with st.sidebar:
     )
     st.markdown("---")
     st.markdown("### ⚙️ Cấu Hình Chung")
-    default_ngrok = st.text_input("🔗 GPU Server URL (Ngrok):", value="https://stoppable-unrivaled-driver.ngrok-free.dev")
+    default_ngrok = st.text_input("🔗 GPU Server URL (Cloudflare):", value="https://relative-remark-gpl-medicare.trycloudflare.com")
     default_gemini_key = st.text_input("🔑 Gemini API Key (Dùng chung):", type="password")
 
 # =============================================================================
