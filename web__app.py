@@ -25,7 +25,7 @@ try:
 except Exception:
     pass
 
-st.set_page_config(page_title="AI Studio Ultimate", page_icon="✨", layout="centered")
+st.set_page_config(page_title="AI Studio Ultimate Pro", page_icon="🎬", layout="centered")
 
 def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-flash"):
     candidate_models = [
@@ -50,17 +50,18 @@ def generate_content_with_fallback(client, contents, primary_model="gemini-3.6-f
 
 BANNER_URLS = {
     "HERO": "https://image.pollinations.ai/prompt/Futuristic%20creative%20AI%20video%20and%20music%20production%20studio,%20glowing%20neon%20holograms,%20Super%20Saiyan%20energy%20and%20dancing%20characters,%20ultra%20vibrant%203D%20cinematic%20digital%20art,%208k%20masterpiece?width=1200&height=400&model=flux&seed=777&nologo=true",
+    "COLAB": "https://image.pollinations.ai/prompt/Futuristic%20supercomputer%20GPU%20cluster%20server,%20glowing%20cyan%20and%20purple%20neon%20data%20streams,%20motion%20capture%20AI%20facial%20animation%20grid,%20ultra%20high-tech%203D?width=1080&height=350&model=flux&seed=222&nologo=true",
     "SQUISH": "https://image.pollinations.ai/prompt/Cute%20chubby%20baby%20cheeks%20being%20gently%20squished%20by%20a%20hand,%20hilarious%20pouting%20grumpy%20expression,%20hyper-realistic%203D%20render,%20cinematic%20lighting?width=1080&height=350&model=flux&seed=444&nologo=true",
     "TRANSFORM": "https://image.pollinations.ai/prompt/Epic%20character%20transformation,%20split%20view%20between%20Super%20Saiyan%20golden%20hair%20and%20giant%20muscular%20hero,%20energetic%20lighting%20sparks,%20cinematic%203D%20render,%208k?width=1080&height=350&model=flux&seed=888&nologo=true",
     "VIDEO": "https://image.pollinations.ai/prompt/Social%20media%20short%20video%20creator%20concept,%209:16%20smartphone%20screen%20floating%20with%20cinematic%20scenes,%20subtitles,%20vibrant%20colors,%203D%20render?width=1080&height=350&model=flux&seed=999&nologo=true",
-    "MUSIC": "https://image.pollinations.ai/prompt/Neon%20glowing%20music%20studio,%20floating%20musical%20notes,%20soundwaves,%20headphones,%20cyberpunk%20aesthetic,%20ultra%20detailed%203D?width=1080&height=350&model=flux&seed=333&nologo=true",
-    "MOTION": "https://image.pollinations.ai/prompt/Motion%20capture%20AI%20face%20tracking%20and%20animation,%20holographic%20grid,%203D%20character%20avatar,%20cyberpunk%20studio?width=1080&height=350&model=flux&seed=111&nologo=true"
+    "MUSIC": "https://image.pollinations.ai/prompt/Neon%20glowing%20music%20studio,%20floating%20musical%20notes,%20soundwaves,%20headphones,%20cyberpunk%20aesthetic,%20ultra%20detailed%203D?width=1080&height=350&model=flux&seed=333&nologo=true"
 }
 
 st.image(BANNER_URLS["HERO"], use_container_width=True)
-st.title("✨ AI Studio Ultimate")
-st.caption("Tổng Hợp Toàn Bộ Công Cụ: Ghép Chuyển Động • Biến Hình 3D • Video Ngắn • Bóp Má • Nhạc AI")
+st.title("🎬 AI Studio Ultimate Pro")
+st.caption("Studio Đa Năng: Ghép Cử Động GPU Colab • Biến Hình 3D • Video Ngắn • Bóp Má • Nhạc AI")
 
+# Xử lý API Key Gemini
 saved_api_key = st.secrets.get("GEMINI_API_KEY", "")
 if saved_api_key:
     api_key = saved_api_key
@@ -68,14 +69,13 @@ if saved_api_key:
 else:
     api_key = st.text_input("🔑 Gemini API Key (*):", type="password", placeholder="Nhập Gemini API Key của bạn...")
 
-# MENU LỰA CHỌN CHỨC NĂNG
-st.markdown("### 🎯 Chọn Chức Năng Bạn Muốn Dùng:")
+st.markdown("### 🎯 Chọn Chức Năng Cần Sử Dụng:")
 feature_choice = st.radio(
     "Danh sách tính năng:",
     [
-        "🎭 Ghép Ảnh Tĩnh Vào Video Động (LivePortrait)",
+        "🚀 Ghép Cử Động Thật 100% (Kết Nối Google Colab GPU)",
         "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime...)",
-        "🎬 Tạo Video Ngắn (TikTok/Reels)",
+        "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)",
         "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style)",
         "🎵 Sáng Tác Nhạc & Lời"
     ],
@@ -86,78 +86,66 @@ feature_choice = st.radio(
 st.markdown("---")
 
 # ==========================================================
-# 1. GHÉP ẢNH TĨNH VÀO VIDEO ĐỘNG (GIỮ NGUYÊN NGŨ QUAN)
+# 1. GHÉP CỬ ĐỘNG THẬT 100% (KẾT NỐI GOOGLE COLAB GPU)
 # ==========================================================
-if feature_choice == "🎭 Ghép Ảnh Tĩnh Vào Video Động (LivePortrait)":
-    st.image(BANNER_URLS["MOTION"], caption="🎭 Ghép Chuyển Động Từ Video Mẫu Sang Ảnh Tĩnh (Giữ Trọn Ngũ Quan)", use_container_width=True)
-    st.subheader("🎭 Ghép Ngũ Quan Ảnh Tĩnh Sang Video Động (LivePortrait)")
-    st.caption("Tải 1 ảnh khuôn mặt tĩnh và 1 video chuyển động mẫu để AI truyền cử động sang ảnh của bạn!")
+if feature_choice == "🚀 Ghép Cử Động Thật 100% (Kết Nối Google Colab GPU)":
+    st.image(BANNER_URLS["COLAB"], caption="⚡ GPU Cloud Server: Render Cử Động Cơ Mặt, Mắt, Miệng 100% Thật", use_container_width=True)
+    st.subheader("🚀 Trình Tạo Video Cử Động Ngũ Quan 3D (Colab GPU Miễn Phí)")
+    st.caption("Hệ thống kết nối trực tiếp với GPU T4 miễn phí trên Google Colab để render từng khung hình cơ mặt.")
 
-    col_g1, col_g2 = st.columns(2)
-    with col_g1:
-        source_img = st.file_uploader("1. Tải ảnh chân dung tĩnh:", type=["jpg", "jpeg", "png", "heic", "webp"], key="g_source_img")
-    with col_g2:
-        driving_vid = st.file_uploader("2. Tải video cử động mẫu:", type=["mp4", "mov", "avi"], key="g_driving_vid")
+    colab_url = st.text_input(
+        "🔗 1. Nhập URL Server Colab (Lấy từ Bước 2 trên Colab):",
+        placeholder="https://xxxx-xx-xx.ngrok-free.app",
+        help="Dán link ngrok được in ra ở ô code Google Colab vào đây."
+    )
 
-    if st.button("🚀 BẮT ĐẦU GHÉP CHUYỂN ĐỘNG", use_container_width=True, key="btn_run_motion_swap"):
-        if not source_img or not driving_vid:
-            st.error("⚠️ Vui lòng tải lên đầy đủ cả Ảnh tĩnh và Video chuyển động mẫu!")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        src_file = st.file_uploader("📸 2. Tải ảnh nhân vật tĩnh:", type=["jpg", "jpeg", "png", "webp"], key="colab_src_img")
+    with col_c2:
+        drv_file = st.file_uploader("🎞️ 3. Tải video cử động mẫu:", type=["mp4", "mov", "avi"], key="colab_drv_vid")
+
+    if st.button("🎬 XUẤT VIDEO CỬ ĐỘNG THẬT 100%", use_container_width=True, key="btn_run_colab_render"):
+        if not colab_url:
+            st.error("⚠️ Vui lòng nhập link URL Server Google Colab!")
+        elif not src_file or not drv_file:
+            st.error("⚠️ Vui lòng tải lên đầy đủ cả Ảnh chân dung và Video cử động mẫu!")
         else:
-            status = st.status("🧠 AI đang phân tích và truyền chuyển động sang ảnh...", expanded=True)
+            status = st.status("⏳ Đang gửi dữ liệu sang Google Colab GPU để render...", expanded=True)
             try:
-                with tempfile.TemporaryDirectory() as td:
-                    img_p = os.path.join(td, "source.jpg")
-                    vid_p = os.path.join(td, "driving.mp4")
-                    
-                    Image.open(source_img).convert("RGB").save(img_p, format="JPEG", quality=95)
-                    with open(vid_p, "wb") as f:
-                        f.write(driving_vid.read())
+                clean_url = colab_url.strip().rstrip("/")
+                target_api = f"{clean_url}/animate"
+                
+                status.write("📤 Đang nén và chuyển dữ liệu qua đường truyền ngầm...")
+                files = {
+                    "source_image": (src_file.name, src_file.getvalue(), src_file.type if src_file.type else "image/jpeg"),
+                    "driving_video": (drv_file.name, drv_file.getvalue(), drv_file.type if drv_file.type else "video/mp4")
+                }
 
-                    status.write("🌐 Đang kết nối máy chủ LivePortrait AI...")
-                    video_out_path = None
-                    try:
-                        from gradio_client import Client, handle_file
-                        client_lp = Client("KwaiVGI/LivePortrait")
-                        res = client_lp.predict(
-                            source_image=handle_file(img_p),
-                            driving_video=handle_file(vid_p),
-                            api_name="/gpu"
-                        )
-                        if isinstance(res, (tuple, list)):
-                            video_out_path = res[0]
-                        elif isinstance(res, str):
-                            video_out_path = res
-                    except Exception:
-                        status.write("⚠️ Máy chủ đám mây bận, đang kết xuất chế độ tương thích...")
+                status.write("🧠 GPU T4 đang phân tích 68 điểm cơ mặt và tính toán chuyển động...")
+                response = requests.post(target_api, files=files, timeout=240)
 
-                    if not video_out_path or not os.path.exists(video_out_path):
-                        # Chế độ dự phòng
-                        im_obj = Image.open(img_p).resize((540, 960), Image.Resampling.LANCZOS)
-                        def frame_make(t):
-                            tilt = int(12 * np.sin(2 * np.pi * 0.8 * t))
-                            nod = int(8 * np.cos(2 * np.pi * 1.5 * t))
-                            return np.roll(np.array(im_obj), shift=(nod, tilt), axis=(0, 1))
-                        clip = VideoClip(frame_make, duration=5.0)
-                        fb_p = os.path.join(td, "fb_motion.mp4")
-                        clip.write_videofile(fb_p, fps=24, codec="libx264", audio=False, logger=None)
-                        video_out_path = fb_p
-                        clip.close()
+                if response.status_code == 200:
+                    st.session_state['colab_rendered_video'] = response.content
+                    status.update(label="✅ Render video thành công 100%!", state="complete", expanded=False)
+                    st.success("🎉 Video cử động khuôn mặt chân thực của bạn đã hoàn thành!")
+                else:
+                    status.update(label="❌ Lỗi từ máy chủ Colab!", state="error")
+                    st.error(f"Máy chủ phản hồi: {response.text}")
 
-                    with open(video_out_path, "rb") as vf:
-                        st.session_state['motion_swap_bytes'] = vf.read()
-
-                    status.update(label="✅ Đã ghép chuyển động thành công!", state="complete", expanded=False)
-                    st.success("🎉 Video ghép chuyển động của bạn đã sẵn sàng!")
+            except requests.exceptions.Timeout:
+                status.update(label="❌ Hết thời gian chờ!", state="error")
+                st.error("Quá thời gian xử lý (Timeout). Vui lòng thử với video mẫu ngắn hơn (dưới 10 giây).")
             except Exception as e:
-                status.update(label="❌ Có lỗi xảy ra!", state="error")
-                st.error(f"Chi tiết: {str(e)}")
+                status.update(label="❌ Lỗi kết nối!", state="error")
+                st.error(f"Không thể kết nối đến URL Colab: {str(e)}. Hãy chắc chắn ô code trên Colab vẫn đang ở trạng thái chạy.")
 
-    if 'motion_swap_bytes' in st.session_state:
-        st.video(st.session_state['motion_swap_bytes'])
+    if 'colab_rendered_video' in st.session_state:
+        st.video(st.session_state['colab_rendered_video'])
         st.download_button(
-            "📥 Tải Video Kết Quả (.mp4)",
-            data=st.session_state['motion_swap_bytes'],
-            file_name="Motion_Retarget_Video.mp4",
+            "📥 Tải Video Cử Động Hoàn Chỉnh (.mp4)",
+            data=st.session_state['colab_rendered_video'],
+            file_name="AI_Face_Motion_Rendered.mp4",
             mime="video/mp4",
             use_container_width=True
         )
@@ -358,7 +346,7 @@ elif feature_choice == "✨ Vũ Trụ Biến Hình AI (Phình To, Saiyan, Anime.
 # ==========================================================
 # 3. TẠO VIDEO NGẮN TIKTOK / REELS TỰ ĐỘNG
 # ==========================================================
-elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels)":
+elif feature_choice == "🎬 Tạo Video Ngắn (TikTok/Reels Tự Động)":
     st.image(BANNER_URLS["VIDEO"], caption="🎬 Xưởng Tạo Video TikTok / Reels Tự Động", use_container_width=True)
     st.subheader("🎬 Xưởng Tạo Video Ngắn 9:16 Tự Động")
     uploaded_files = st.file_uploader(
@@ -452,7 +440,7 @@ elif feature_choice == "🤏 Video Bóp Má & Phồng Mặt 3D (Mivora Style)":
         "🎭 Chọn phong cách tương tác:",
         [
             "Bàn tay bóp má phồng lên $\rightarrow$ Thả ra nhăn mặt dỗi (Mivora Standard)",
-            "Véov má 2 bên dễ thương $\rightarrow$ Thả ra cười tít mắt",
+            "Véo má 2 bên dễ thương $\rightarrow$ Thả ra cười tít mắt",
             "Bàn tay chọc vào má $\rightarrow$ Phồng mang trợn mắt hài hước"
         ]
     )
