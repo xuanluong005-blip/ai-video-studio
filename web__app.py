@@ -10,13 +10,17 @@ import numpy as np
 import nest_asyncio
 from google import genai
 from google.genai import types
-from moviepy import (
-    ImageClip, 
-    AudioFileClip, 
-    CompositeAudioClip, 
-    concatenate_videoclips,
-    VideoClip
-)
+
+# Tương thích linh hoạt cho cả MoviePy v1.x và v2.x
+try:
+    from moviepy import ImageClip, AudioFileClip, CompositeAudioClip, concatenate_videoclips, VideoClip
+except Exception:
+    try:
+        from moviepy.editor import ImageClip, AudioFileClip, CompositeAudioClip, concatenate_videoclips
+        from moviepy.video.VideoClip import VideoClip
+    except Exception:
+        from moviepy.editor import *
+
 import edge_tts
 from PIL import Image
 
