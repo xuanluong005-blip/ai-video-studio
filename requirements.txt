@@ -1,9 +1,8 @@
 streamlit
 google-genai
 pillow
-moviepy
+moviepy>=2.0.0
 edge-tts
 requests
 numpy
-nest_asyncio
 pillow-heif
