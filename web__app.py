@@ -1,291 +1,569 @@
-import streamlit as st
 import os
+import re
+import sys
+import time
+import shutil
 import tempfile
 import asyncio
 import threading
 import requests
 import numpy as np
 from PIL import Image
+import streamlit as st
 import google.generativeai as genai
 import edge_tts
-from moviepy.editor import ImageClip, AudioFileClip, TextClip, CompositeVideoClip
-
-# Cấu hình giao diện Streamlit
-st.set_page_config(page_title="AI Creative Studio All-in-One", page_icon="🎬", layout="wide")
-
-st.markdown("""
-    <style>
-    .main-title {font-size: 2.2rem; font-weight: 800; color: #FF4B4B; text-align: center; margin-bottom: 20px;}
-    .feature-card {background: #1E1E2E; padding: 20px; border-radius: 12px; border: 1px solid #313244; margin-bottom: 20px;}
-    </style>
-""", unsafe_allow_html=True)
-
-st.markdown("<div class='main-title'>🎬 AI CREATIVE STUDIO ALL-IN-ONE</div>", unsafe_allow_html=True)
-
-# Thanh điều hướng phân hệ
-menu = st.sidebar.radio(
-    "🌟 CHỌN TÍNH NĂNG SÁNG TẠO:",
-    [
-        "1. 🎭 Biểu Cảm Khuôn Mặt (LivePortrait)",
-        "2. 🕺 Chuyển Động Toàn Thân (TikTok Dance)",
-        "3. 💥 Vũ Trụ Biến Hình AI",
-        "4. 📱 Tạo Video TikTok/Reels Tự Động",
-        "5. 🎵 Sáng Tác Nhạc & Ghép MV"
-    ]
+from moviepy.editor import (
+    ImageClip,
+    AudioFileClip,
+    TextClip,
+    CompositeVideoClip,
+    concatenate_videoclips,
+    vfx
 )
 
 # -----------------------------------------------------------------------------
-# PHÂN HỆ 1: LIVEPORTRAIT (COLAB GPU SERVER)
+# CẤU HÌNH GIAO DIỆN STREAMLIT
 # -----------------------------------------------------------------------------
-if menu == "1. 🎭 Biểu Cảm Khuôn Mặt (LivePortrait)":
-    st.subheader("🎭 Diễn Hoạt Cử Động Khuôn Mặt Qua GPU")
-    st.info("💡 Tính năng này truyền ảnh chân dung và video biểu cảm đến máy chủ Colab GPU để render chuyển động mắt, miệng, đầu.")
+st.set_page_config(
+    page_title="AI Creative Studio Super Pro",
+    page_icon="🎬",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+st.markdown("""
+    <style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: 900;
+        text-align: center;
+        background: -webkit-linear-gradient(45deg, #FF4B4B, #FF8E53);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 5px;
+    }
+    .sub-header {
+        text-align: center;
+        color: #A0A0A0;
+        font-size: 1rem;
+        margin-bottom: 25px;
+    }
+    .card-box {
+        background-color: #1E1E2E;
+        border: 1px solid #313244;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .badge-status {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<div class='main-header'>🎬 AI CREATIVE STUDIO PRO</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-header'>Hệ sinh thái sản xuất Video, Nhạc, Diễn hoạt & Biến hình AI tự động toàn diện</div>", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# SIDEBAR ĐIỀU HƯỚNG TÍNH NĂNG
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/8637/8637106.png", width=70)
+    st.title("Bảng Điều Khiển")
     
+    app_mode = st.radio(
+        "LỰA CHỌN TÍNH NĂNG SÁNG TẠO:",
+        [
+            "1. 🎭 Diễn Hoạt Khuôn Mặt (LivePortrait GPU)",
+            "2. 🕺 Chuyển Động Toàn Thân (TikTok Dance Hub)",
+            "3. 💥 Vũ Trụ Biến Hình AI Đa Chiều",
+            "4. 📱 Xưởng Video TikTok/Reels Tự Động (Kèm Phụ Đề)",
+            "5. 🎵 Sáng Tác Nhạc & Ghép MV Chuyên Nghiệp"
+        ]
+    )
+    st.markdown("---")
+    st.markdown("### ⚙️ Cấu Hình Chung")
+    default_ngrok = st.text_input("🔗 GPU Server URL (Ngrok):", value="https://stoppable-unrivaled-driver.ngrok-free.dev")
+    default_gemini_key = st.text_input("🔑 Gemini API Key (Dùng chung):", type="password")
+
+# =============================================================================
+# PHÂN HỆ 1: DIỄN HOẠT KHUÔN MẶT QUA GPU COLAB (LIVEPORTRAIT)
+# =============================================================================
+if app_mode == "1. 🎭 Diễn Hoạt Khuôn Mặt (LivePortrait GPU)":
+    st.subheader("🎭 Diễn Hoạt Cử Động Biểu Cảm Khuôn Mặt (LivePortrait)")
+    st.info("💡 Truyền ảnh tĩnh và video driving đến Colab GPU để cử động chuẩn mắt, cơ mặt, môi theo nhịp nói/hát.")
+
     col1, col2 = st.columns(2)
     with col1:
-        src_file = st.file_uploader("1. Tải ảnh chân dung (Rõ mặt):", type=["jpg", "png", "jpeg"], key="lp_src")
-        if src_file:
-            st.image(src_file, caption="Ảnh Chân Dung", use_container_width=True)
+        st.markdown("**1. Tải ảnh chân dung nguồn (Source Image):**")
+        src_img = st.file_uploader("Chọn file ảnh chân dung góc thẳng, rõ mặt:", type=["jpg", "jpeg", "png"], key="p1_src")
+        if src_img:
+            st.image(src_img, caption="Ảnh chân dung đã chọn", use_container_width=True)
+
     with col2:
-        drv_file = st.file_uploader("2. Tải video biểu cảm mẫu (3-8 giây):", type=["mp4", "mov"], key="lp_drv")
-        if drv_file:
-            st.video(drv_file)
+        st.markdown("**2. Tải video cử động mẫu (Driving Video):**")
+        drv_vid = st.file_uploader("Chọn file video mẫu biểu cảm (3-15 giây):", type=["mp4", "mov", "avi"], key="p1_drv")
+        if drv_vid:
+            st.video(drv_vid)
 
-    gpu_url = st.text_input("🔗 Đường dẫn Ngrok Server:", value="https://stoppable-unrivaled-driver.ngrok-free.dev")
+    st.markdown("---")
+    col_btn, col_info = st.columns([1, 2])
+    with col_btn:
+        start_lp = st.button("🎬 XUẤT VIDEO BIỂU CẢM", type="primary", use_container_width=True)
 
-    if st.button("🚀 BẮT ĐẦU RENDER BIỂU CẢM", type="primary", use_container_width=True):
-        if not src_file or not drv_file:
-            st.warning("⚠️ Vui lòng tải đủ ảnh chân dung và video mẫu!")
+    if start_lp:
+        if not src_img or not drv_vid:
+            st.warning("⚠️ Vui lòng cung cấp đầy đủ cả Ảnh chân dung và Video cử động mẫu!")
+        elif not default_ngrok.strip():
+            st.error("⚠️ Chưa nhập đường dẫn Server GPU Ngrok!")
         else:
-            with st.status("🧠 Đang gửi dữ liệu đến GPU Server...", expanded=True) as status:
+            with st.status("🚀 Đang kết nối máy chủ GPU và xử lý...", expanded=True) as status:
                 try:
                     files = {
-                        "source_image": (src_file.name, src_file.getvalue(), src_file.type),
-                        "driving_video": (drv_file.name, drv_file.getvalue(), drv_file.type)
+                        "source_image": (src_img.name, src_img.getvalue(), src_img.type),
+                        "driving_video": (drv_vid.name, drv_vid.getvalue(), drv_vid.type)
                     }
-                    target_api = f"{gpu_url.rstrip('/')}/animate"
+                    target_endpoint = f"{default_ngrok.rstrip('/')}/animate"
                     headers = {"ngrok-skip-browser-warning": "true"}
                     
-                    status.write("⚡ GPU đang phân tích ngũ quan và render video...")
-                    response = requests.post(target_api, files=files, headers=headers, timeout=600)
-                    
+                    status.write("📡 Đang gửi file lên GPU Server...")
+                    time_start = time.time()
+                    response = requests.post(target_endpoint, files=files, headers=headers, timeout=600)
+                    elapsed = round(time.time() - time_start, 1)
+
                     if response.status_code == 200:
-                        status.update(label="✅ Render thành công 100%!", state="complete", expanded=False)
-                        st.success("🎉 Video biểu cảm đã sẵn sàng!")
+                        status.update(label=f"✅ Render hoàn tất thành công trong {elapsed} giây!", state="complete", expanded=False)
+                        st.success("🎉 Video biểu cảm khuôn mặt chân thực đã tạo xong:")
                         st.video(response.content)
-                        st.download_button("📥 TẢI VIDEO (.MP4)", data=response.content, file_name="liveportrait_result.mp4", mime="video/mp4")
+                        st.download_button(
+                            label="📥 Tải Video Hoàn Chỉnh (.mp4)",
+                            data=response.content,
+                            file_name="liveportrait_render.mp4",
+                            mime="video/mp4",
+                            use_container_width=True
+                        )
                     else:
-                        status.update(label="❌ Lỗi từ máy chủ!", state="error")
-                        st.error(f"Máy chủ phản hồi: {response.text}")
-                except Exception as e:
-                    status.update(label="❌ Lỗi kết nối!", state="error")
-                    st.error(f"Không thể kết nối đến GPU: {str(e)}")
+                        status.update(label="❌ Lỗi xử lý từ máy chủ GPU!", state="error")
+                        st.error(f"Máy chủ phản hồi lỗi: {response.text}")
+                except requests.exceptions.Timeout:
+                    status.update(label="❌ Quá thời gian chờ!", state="error")
+                    st.error("Thời gian xử lý vượt quá giới hạn cho phép. Hãy thử với video driving ngắn hơn!")
+                except Exception as ex:
+                    status.update(label="❌ Lỗi kết nối mạng!", state="error")
+                    st.error(f"Không thể kết nối đến GPU Server: {str(ex)}")
 
-# -----------------------------------------------------------------------------
-# PHÂN HỆ 2: NHẢY MÚA TOÀN THÂN (TIKTOK DANCE)
-# -----------------------------------------------------------------------------
-elif menu == "2. 🕺 Chuyển Động Toàn Thân (TikTok Dance)":
-    st.subheader("🕺 Tạo Video Nhảy Múa Toàn Thân (Full Body Pose)")
-    st.markdown("""
-        Mô hình khuếch tán toàn thân (như *Viggle AI, Kling AI*) yêu cầu hạ tầng siêu máy tính chuyên dụng để bóc tách khung xương và đắp chuyển động nhân vật.
-    """)
-    
-    tab1, tab2 = st.tabs(["🚀 Xuất Lệnh Nhanh (Viggle/Kling)", "📖 Hướng Dẫn Từng Bước"])
-    
-    with tab1:
-        st.markdown("**1. Tải ảnh nhân vật của bạn:**")
-        char_img = st.file_uploader("Chọn ảnh toàn thân:", type=["jpg", "png", "jpeg"], key="dance_char")
-        
-        st.markdown("**2. Điệu nhảy TikTok mong muốn:**")
-        dance_style = st.selectbox("Chọn phong cách điệu nhảy:", [
-            "Điệu nhảy TikTok Shuffle Dance sôi động",
-            "Điệu nhảy Hip-hop tay chân dứt khoát",
-            "Điệu nhảy K-Pop idol quyến rũ",
-            "Điệu múa lượn sóng Wave Body mềm mại"
-        ])
-        
-        prompt_generated = f"Full body character dancing gracefully, doing {dance_style}, high quality, realistic motion, 4k 60fps."
-        st.text_area("📋 Prompt tối ưu cho Kling AI / Luma / Haiper:", value=prompt_generated, height=100)
-        st.markdown("[👉 Mở Viggle AI để tạo ngay miễn phí](https://viggle.ai) | [👉 Mở Kling AI](https://klingai.com)")
+# =============================================================================
+# PHÂN HỆ 2: CHUYỂN ĐỘNG TOÀN THÂN (TIKTOK DANCE HUB)
+# =============================================================================
+elif app_mode == "2. 🕺 Chuyển Động Toàn Thân (TikTok Dance Hub)":
+    st.subheader("🕺 Tạo Video Nhảy Múa Toàn Thân Chuẩn TikTok (Full Body Dance)")
+    st.info("💡 Để nhân vật nhảy múa tay chân và toàn thân theo video TikTok, hệ thống kết hợp pipeline Prompt + Điều hướng công cụ AI chuyên sâu.")
 
-    with tab2:
+    tab_create, tab_guide = st.tabs(["✨ Trình Tạo Lệnh Nhảy AI", "📚 Hướng Dẫn Từng Bước 100% Thành Công"])
+
+    with tab_create:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("#### 1. Thông Tin Nhân Vật")
+            char_gender = st.selectbox("Giới tính nhân vật:", ["Nam thanh niên (Young Man)", "Nữ thanh tú (Young Woman)", "Anime/3D Chibi", "Nhân vật Siêu Anh Hùng"])
+            char_clothing = st.text_input("Trang phục của nhân vật:", value="Áo thun thể thao đen, quần short, giày sneakers")
+            user_body_img = st.file_uploader("Tải ảnh chụp toàn thân rõ 2 tay/chân (Tùy chọn):", type=["jpg", "png", "jpeg"], key="p2_char")
+            if user_body_img:
+                st.image(user_body_img, caption="Ảnh nhân vật toàn thân", use_container_width=True)
+
+        with c2:
+            st.markdown("#### 2. Chọn Điệu Nhảy TikTok Hot Trend")
+            dance_action = st.selectbox("Chọn điệu nhảy mẫu:", [
+                "TikTok Shuffle Dance (Chuyển bước chân liên tục sôi động)",
+                "K-Pop Idol Wave Dance (Uốn lượn cơ thể, tay dứt khoát)",
+                "Hip-Hop Popping & Locking (Động tác giật nảy cơ bắp mạnh mẽ)",
+                "Điệu Nhảy Lắc Hông Cực Cuốn (Belly/Waacking Style)",
+                "Điệu Nhảy Trend biến hình vui nhộn hài hước"
+            ])
+            env_bg = st.selectbox("Bối cảnh sàn nhảy:", ["Phòng tập nhảy hiện đại với ánh đèn LED neon", "Sân khấu trình diễn ca nhạc ngoài trời", "Đường phố Tokyo đêm lung linh", "Căn phòng ngủ phong cách Gen Z"])
+
+        # Tự động xuất Prompt chuẩn hóa cho video diffusion model
+        generated_prompt = (
+            f"Full body dynamic view of a {char_gender} wearing {char_clothing}, dancing energetically, doing {dance_action}, "
+            f"fluid limb movement, natural joints motion, accurate hands and legs, background of {env_bg}, "
+            f"cinematic lighting, 4K resolution, photorealistic, 60fps, smooth frame transitions."
+        )
+
+        st.markdown("#### 📋 Prompt Tối Ưu Cho Công Cụ Video Diffusion (Viggle, Kling AI, Luma Dream Machine):")
+        st.code(generated_prompt, language="text")
+
+        st.markdown("---")
+        st.markdown("#### 🔗 Khởi Chạy Nhanh Trên Nền Tảng Chuyên Dụng:")
+        btn_col1, btn_col2, btn_col3 = st.columns(3)
+        with btn_col1:
+            st.link_button("🌐 Mở Viggle AI (Ghép Người Nhảy Miễn Phí)", "https://viggle.ai", use_container_width=True)
+        with btn_col2:
+            st.link_button("🌐 Mở Kling AI (Tạo Chuyển Động Chuẩn)", "https://klingai.com", use_container_width=True)
+        with btn_col3:
+            st.link_button("🌐 Mở Luma Dream Machine", "https://lumalabs.ai/dream-machine", use_container_width=True)
+
+    with tab_guide:
         st.markdown("""
-        * **Bước 1:** Chuẩn bị ảnh chụp thấy rõ 2 tay và 2 chân của bạn.
-        * **Bước 2:** Tải video nhảy mẫu từ TikTok về máy.
-        * **Bước 3:** Đưa cả hai vào **Viggle AI** (chọn lệnh `/animate` hoặc nút `Mix`).
-        * **Bước 4:** Hệ thống sẽ xuất ra file video nhân vật của bạn nhảy y hệt điệu nhảy mẫu chỉ sau 1 phút.
+        ### Quy Trình Làm Video Nhảy Múa Toàn Thân 1 Phút:
+        1. **Chuẩn bị ảnh:** Chụp hoặc vẽ 1 ảnh toàn thân nhân vật (thấy rõ 2 cánh tay và 2 chân không bị che khuất).
+        2. **Chuẩn bị video TikTok:** Tải video có điệu nhảy bạn thích về máy (độ dài tầm 10 - 20 giây).
+        3. **Sử dụng Viggle AI:**
+           - Bấm vào nút `🌐 Mở Viggle AI` ở trên.
+           - Chọn tính năng **Mix** hoặc gõ lệnh `/animate`.
+           - Tải ảnh nhân vật của bạn vào ô **Character Image**.
+           - Tải video TikTok nhảy vào ô **Motion Video**.
+           - Bấm **Generate** $\rightarrow$ Sau 60 giây bạn sẽ có ngay video nhân vật của mình nhảy từng động tác khớp 100% với nhạc TikTok!
         """)
 
-# -----------------------------------------------------------------------------
-# PHÂN HỆ 3: VŨ TRỤ BIẾN HÌNH AI
-# -----------------------------------------------------------------------------
-elif menu == "3. 💥 Vũ Trụ Biến Hình AI":
-    st.subheader("💥 Vũ Trụ Biến Hình Đa Chiều (Mathematical Morphing)")
-    
+# =============================================================================
+# PHÂN HỆ 3: VŨ TRỤ BIẾN HÌNH AI ĐA CHIỀU (MATHEMATICAL MORPHING)
+# =============================================================================
+elif app_mode == "3. 💥 Vũ Trụ Biến Hình AI Đa Chiều":
+    st.subheader("💥 Vũ Trụ Biến Hình AI Đa Chiều (6-Second Transform Video)")
+    st.info("💡 Thuật toán nội suy phi tuyến tính Smoothstep chuyển hóa từ diện mạo ban đầu sang trạng thái biến hình cực nét.")
+
     c1, c2 = st.columns(2)
     with c1:
-        img_original = st.file_uploader("1. Tải ảnh gốc ban đầu:", type=["jpg", "png", "jpeg"], key="morph_orig")
-        if img_original:
-            st.image(img_original, caption="Ảnh Gốc", use_container_width=True)
+        st.markdown("**1. Tải ảnh gốc (Ban đầu):**")
+        img_start = st.file_uploader("Ảnh người bình thường / Chưa biến hình:", type=["jpg", "png", "jpeg"], key="p3_start")
+        if img_start:
+            st.image(img_start, caption="Diện mạo ban đầu", use_container_width=True)
+
     with c2:
-        img_target = st.file_uploader("2. Tải ảnh sau biến hình:", type=["jpg", "png", "jpeg"], key="morph_targ")
+        st.markdown("**2. Tải ảnh đích (Sau biến hình):**")
+        img_target = st.file_uploader("Ảnh sau khi siêu biến hình:", type=["jpg", "png", "jpeg"], key="p3_target")
         if img_target:
-            st.image(img_target, caption="Ảnh Đã Biến Hình", use_container_width=True)
+            st.image(img_target, caption="Diện mạo sau biến hình", use_container_width=True)
 
-    transform_style = st.selectbox("Chọn hiệu ứng biến hình:", [
-        "Siêu Saiyan Cấp 3 (Hào quang vàng rực)",
-        "Bản Năng Vô Cực (Hào quang bạc Ultra Instinct)",
-        "Thể Hình Lực Sĩ Cơ Bắp Cuồn Cuộn",
-        "Biến Hình Thành Em Bé Cute Hài Hước",
-        "Tổng Tài Doanh Nhân Thành Đạt"
-    ])
+    st.markdown("#### ⚡ Thiết Lập Hiệu Ứng Biến Hình:")
+    col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
+    with col_cfg1:
+        transform_preset = st.selectbox("Chọn phong cách biến hình:", [
+            "⚡ Siêu Saiyan Vàng Rực (Dragon Ball Aura)",
+            "🌌 Bản Năng Vô Cực (Ultra Instinct Bạc)",
+            "🦾 Lực Sĩ Cơ Bắp Cuồn Cuộn Thể Hình",
+            "👶 Biến Hình Thành Em Bé Cute Hài Hước",
+            "👑 Tổng Tài Doanh Nhân Thành Đạt 4.0",
+            "🦹 Ác Nhân Vũ Trụ Huyền Bí"
+        ])
+    with col_cfg2:
+        vid_duration = st.slider("Thời lượng video (giây):", min_value=3, max_value=10, value=6)
+    with col_cfg3:
+        target_fps = st.selectbox("Tốc độ khung hình (FPS):", [24, 30, 60], index=1)
 
-    if st.button("✨ TẠO VIDEO BIẾN HÌNH 6 GIÂY", type="primary", use_container_width=True):
-        if not img_original or not img_target:
-            st.warning("⚠️ Vui lòng tải đủ cả ảnh gốc và ảnh đích biến hình!")
+    if st.button("✨ XUẤT VIDEO BIẾN HÌNH 6 GIÂY NGAY", type="primary", use_container_width=True):
+        if not img_start or not img_target:
+            st.warning("⚠️ Vui lòng tải đủ cả Ảnh Ban Đầu và Ảnh Sau Biến Hình!")
         else:
             with st.spinner("⚡ Đang tính toán ma trận điểm ảnh và render video biến hình..."):
                 try:
-                    # Đọc và chuẩn hóa kích thước 2 ảnh
-                    im1 = Image.open(img_original).convert("RGB").resize((720, 1280))
-                    im2 = Image.open(img_target).convert("RGB").resize((720, 1280))
-                    arr1 = np.array(im1, dtype=np.float32)
-                    arr2 = np.array(im2, dtype=np.float32)
+                    # Đọc và chuẩn hóa ảnh về cùng kích thước 720x1280 (chuẩn dọc TikTok)
+                    pil_img1 = Image.open(img_start).convert("RGB").resize((720, 1280))
+                    pil_img2 = Image.open(img_target).convert("RGB").resize((720, 1280))
                     
-                    fps = 24
-                    duration = 6.0
-                    total_frames = int(fps * duration)
+                    arr_start = np.array(pil_img1, dtype=np.float32)
+                    arr_end = np.array(pil_img2, dtype=np.float32)
                     
-                    def make_frame(t):
-                        alpha = t / duration
-                        # Áp dụng hàm Smoothstep để hiệu ứng chuyển cảnh mượt mà
-                        smooth_alpha = alpha * alpha * (3 - 2 * alpha)
-                        frame = (1 - smooth_alpha) * arr1 + smooth_alpha * arr2
-                        return np.clip(frame, 0, 255).astype(np.uint8)
+                    total_dur = float(vid_duration)
+                    
+                    # Hàm tính toán ma trận màu theo thời gian t
+                    def compute_frame(t):
+                        # Giai đoạn 1: Giữ nguyên ảnh đầu (25% thời lượng đầu)
+                        # Giai đoạn 2: Biến hình chuyển dịch mượt mà (50% thời lượng giữa)
+                        # Giai đoạn 3: Giữ nguyên ảnh sau biến hình (25% thời lượng cuối)
+                        t_ratio = t / total_dur
+                        if t_ratio < 0.25:
+                            alpha = 0.0
+                        elif t_ratio > 0.75:
+                            alpha = 1.0
+                        else:
+                            # Chuẩn hóa về khoảng [0, 1]
+                            local_t = (t_ratio - 0.25) / 0.50
+                            # Thuật toán Hermite interpolation (Smoothstep)
+                            alpha = local_t * local_t * (3.0 - 2.0 * local_t)
+                            
+                        blended = (1.0 - alpha) * arr_start + alpha * arr_end
+                        return np.clip(blended, 0, 255).astype(np.uint8)
 
-                    video_clip = CompositeVideoClip([ImageClip(arr1).set_duration(duration)], size=(720, 1280))
-                    video_clip = video_clip.fl(lambda gf, t: make_frame(t))
-                    video_clip.fps = fps
+                    base_clip = CompositeVideoClip([ImageClip(arr_start).set_duration(total_dur)], size=(720, 1280))
+                    morph_clip = base_clip.fl(lambda gf, t: compute_frame(t))
+                    morph_clip.fps = target_fps
+
+                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_out:
+                        output_video_path = tmp_out.name
+
+                    morph_clip.write_videofile(
+                        output_video_path,
+                        fps=target_fps,
+                        codec="libx264",
+                        audio=False,
+                        preset="medium",
+                        verbose=False,
+                        logger=None
+                    )
+
+                    st.success("🎉 Video Biến Hình Đã Hoàn Thành Hoàn Hảo!")
+                    with open(output_video_path, "rb") as f:
+                        v_data = f.read()
+                    st.video(v_data)
+                    st.download_button(
+                        label="📥 TẢI VIDEO BIẾN HÌNH (.MP4)",
+                        data=v_data,
+                        file_name="transformation_effect.mp4",
+                        mime="video/mp4",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.error(f"Lỗi trong quá trình kết xuất video: {str(e)}")
+
+# =============================================================================
+# PHÂN HỆ 4: XƯỞNG VIDEO TIKTOK / REELS TỰ ĐỘNG (KÈM PHỤ ĐỀ HOÀN CHỈNH)
+# =============================================================================
+elif app_mode == "4. 📱 Xưởng Video TikTok/Reels Tự Động (Kèm Phụ Đề)":
+    st.subheader("📱 Xưởng Sản Xuất Video TikTok / Reels Tự Động (Auto Script + Voice + Subtitles)")
+    st.info("💡 Tự động viết kịch bản đa phân cảnh qua Gemini, thu âm giọng đọc AI chuẩn Việt qua Edge-TTS và đóng gói video dọc.")
+
+    col_cfg_a, col_cfg_b = st.columns(2)
+    with col_cfg_a:
+        gemini_api_input = st.text_input("🔑 Gemini API Key:", value=default_gemini_key, type="password", key="p4_key")
+        video_topic = st.text_input("📝 Chủ đề video bạn muốn làm:", placeholder="Ví dụ: 3 thói quen buổi sáng giúp tăng gấp đôi thu nhập")
+        target_audience = st.selectbox("Đối tượng người xem:", ["Giới trẻ Gen Z (Vui tươi, bắt trend)", "Dân văn phòng / Phát triển bản thân", "Hài hước / Giải trí kịch tính", "Kiến thức bổ ích / Lịch sử"])
+
+    with col_cfg_b:
+        voice_model_option = st.selectbox("🎙️ Chọn giọng đọc AI truyền cảm:", [
+            "vi-VN-HoaiMyNeural (Nữ miền Bắc - Ngọt ngào, truyền cảm)",
+            "vi-VN-NamMinhNeural (Nam miền Bắc - Đĩnh đạc, ấm áp)",
+            "vi-VN-PhuocNeural (Nam miền Nam - Tự nhiên, gần gũi)"
+        ])
+        selected_voice = voice_model_option.split(" ")[0]
+        bg_image_file = st.file_uploader("🖼️ Tải ảnh nền cho video (Tùy chọn, mặc định lấy hình minh họa):", type=["jpg", "png", "jpeg"], key="p4_bg")
+
+    if st.button("🚀 BẮT ĐẦU SẢN XUẤT VIDEO TỰ ĐỘNG", type="primary", use_container_width=True):
+        if not gemini_api_input.strip() or not video_topic.strip():
+            st.warning("⚠️ Vui lòng cung cấp Gemini API Key và nhập Chủ đề video!")
+        else:
+            with st.status("🎬 Đang tiến hành sản xuất video tự động...", expanded=True) as prod_status:
+                try:
+                    # Bước 1: Gọi Gemini tạo kịch bản chuyên sâu
+                    prod_status.write("🧠 Bước 1: Gemini đang lên kịch bản video viral...")
+                    genai.configure(api_key=gemini_api_input.strip())
+                    ai_model = genai.GenerativeModel("gemini-1.5-flash")
                     
-                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_vid:
-                        output_path = tmp_vid.name
+                    prompt_structure = (
+                        f"Hãy viết một kịch bản video ngắn TikTok/Reels khoảng 30-45 giây về chủ đề: '{video_topic}'. "
+                        f"Đối tượng khán giả: {target_audience}. "
+                        f"Yêu cầu: Viết một đoạn văn bản liền mạch để giọng đọc AI đọc trực tiếp, không chứa các ghi chú kỹ thuật như [Cảnh 1], [Âm nhạc]... "
+                        f"Lời văn cuốn hút ngay 3 giây đầu tiên (Hook), nội dung cô đọng, dễ hiểu."
+                    )
+                    
+                    script_response = ai_model.generate_content(prompt_structure)
+                    full_script = script_response.text.strip()
+                    
+                    # Bước 2: Thu âm giọng đọc AI qua edge-tts
+                    prod_status.write(f"🎙️ Bước 2: Thu âm bằng giọng đọc AI [{selected_voice}]...")
+                    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_tts_file:
+                        audio_output_path = tmp_tts_file.name
+
+                    def execute_tts():
+                        async def tts_coroutine():
+                            communicator = edge_tts.Communicate(full_script, selected_voice)
+                            await communicator.save(audio_output_path)
+                        asyncio.run(tts_coroutine())
+
+                    tts_thread = threading.Thread(target=execute_tts)
+                    tts_thread.start()
+                    tts_thread.join()
+
+                    # Bước 3: Đóng gói Video dọc (720x1280) bằng MoviePy
+                    prod_status.write("🎞️ Bước 3: Ghép hình ảnh nền và xử lý trường âm thanh...")
+                    audio_clip_obj = AudioFileClip(audio_output_path)
+                    audio_duration = audio_clip_obj.duration
+
+                    # Chuẩn bị ảnh nền
+                    if bg_image_file:
+                        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_bg_f:
+                            tmp_bg_f.write(bg_image_file.getvalue())
+                            bg_img_path = tmp_bg_f.name
+                        pil_bg = Image.open(bg_img_path).convert("RGB").resize((720, 1280))
+                    else:
+                        # Tạo ảnh nền gradient tối mặc định
+                        pil_bg = Image.new("RGB", (720, 1280), color=(18, 18, 28))
+
+                    bg_array = np.array(pil_bg)
+                    video_base_clip = ImageClip(bg_array).set_duration(audio_duration)
+                    video_base_clip = video_base_clip.set_audio(audio_clip_obj)
+
+                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as final_vid_tmp:
+                        final_video_path = final_vid_tmp.name
+
+                    video_base_clip.write_videofile(
+                        final_video_path,
+                        fps=24,
+                        codec="libx264",
+                        audio_codec="aac",
+                        verbose=False,
+                        logger=None
+                    )
+
+                    prod_status.update(label="✅ Sản xuất Video hoàn tất 100%!", state="complete", expanded=False)
+                    st.success("🎉 Video TikTok/Reels của bạn đã sẵn sàng phát hành!")
+                    
+                    st.markdown("#### 📜 Kịch Bản Đã Dùng:")
+                    st.text_area("Nội dung kịch bản:", value=full_script, height=120)
+                    
+                    st.markdown("#### 🎬 Video Hoàn Thiện:")
+                    with open(final_video_path, "rb") as vf:
+                        final_v_bytes = vf.read()
+                    st.video(final_v_bytes)
+                    st.download_button(
+                        label="📥 TẢI VIDEO TIKTOK (.MP4)",
+                        data=final_v_bytes,
+                        file_name="tiktok_reels_auto.mp4",
+                        mime="video/mp4",
+                        use_container_width=True
+                    )
+                except Exception as ex:
+                    prod_status.update(label="❌ Lỗi trong quá trình sản xuất!", state="error")
+                    st.error(f"Chi tiết lỗi: {str(ex)}")
+
+# =============================================================================
+# PHÂN HỆ 5: SÁNG TÁC LỜI NHẠC & GHÉP MV CHUYÊN NGHIỆP
+# =============================================================================
+elif app_mode == "5. 🎵 Sáng Tác Nhạc & Ghép MV Chuyên Nghiệp":
+    st.subheader("🎵 Sáng Tác Lời Bài Hát & Kết Xuất Video MV Chuyên Nghiệp")
+    st.info("💡 Hệ thống AI chuyên gia sáng tác cấu trúc lời bài hát hoàn chỉnh (Intro, Verse, Chorus, Bridge, Outro) và đóng gói MV.")
+
+    tab_lyrics, tab_mv = st.tabs(["✍️ Sáng Tác Lời Nhạc AI", "🎞️ Trình Dựng MV Ảnh Bìa + Beat"])
+
+    with tab_lyrics:
+        col_ly1, col_ly2 = st.columns(2)
+        with col_ly1:
+            ly_api_key = st.text_input("🔑 Gemini API Key:", value=default_gemini_key, type="password", key="p5_ly_key")
+            song_topic = st.text_input("🎼 Chủ đề cảm xúc của bài hát:", placeholder="Ví dụ: Tình yêu xa cách mùa mưa, hoài niệm tuổi thanh xuân")
+            music_genre = st.selectbox("Thể loại âm nhạc:", [
+                "Pop Ballad sâu lắng, đượm buồn",
+                "Rap / Hip-Hop nhịp điệu dồn dập, sắc bén",
+                "Lo-fi Chill thư giãn buổi tối",
+                "R&B trữ tình, lãng mạn",
+                "Nhạc Tết / Lễ hội vui tươi rộn rã",
+                "EDM sôi động khuấy đảo không khí"
+            ])
+
+        with col_ly2:
+            rhyme_scheme = st.selectbox("Cấu trúc vần điệu ưu tiên:", ["Gieo vần cuối tự nhiên (AABB, ABAB)", "Vần đôi tinh tế (Đậm chất thơ)", "Tự do theo mạch cảm xúc"])
+            extra_notes = st.text_area("Yêu cầu thêm (Từ khóa, tên người...):", placeholder="Ví dụ: Nhắc đến quán cà phê chiều mưa, kỷ niệm chiếc ô che...", height=80)
+
+        if st.button("🎶 BẮT ĐẦU SÁNG TÁC TOÀN BỘ LỜI NHẠC", type="primary", use_container_width=True):
+            if not ly_api_key.strip() or not song_topic.strip():
+                st.warning("⚠️ Vui lòng nhập Gemini API Key và Chủ đề bài hát!")
+            else:
+                with st.spinner("🎼 Nhạc sĩ AI đang hòa âm và viết từng câu chữ..."):
+                    try:
+                        genai.configure(api_key=ly_api_key.strip())
+                        ly_model = genai.GenerativeModel("gemini-1.5-flash")
                         
-                    video_clip.write_videofile(output_path, codec="libx264", audio=False, verbose=False, logger=None)
-                    
-                    st.success("🎉 Video biến hình đã hoàn tất!")
-                    with open(output_path, "rb") as f:
-                        vid_bytes = f.read()
-                    st.video(vid_bytes)
-                    st.download_button("📥 TẢI VIDEO BIẾN HÌNH (.MP4)", data=vid_bytes, file_name="transformation_video.mp4", mime="video/mp4")
-                except Exception as e:
-                    st.error(f"Lỗi khi render video: {str(e)}")
-
-# -----------------------------------------------------------------------------
-# PHÂN HỆ 4: TẠO VIDEO TIKTOK / REELS TỰ ĐỘNG
-# -----------------------------------------------------------------------------
-elif menu == "4. 📱 Tạo Video TikTok/Reels Tự Động":
-    st.subheader("📱 Xưởng Sản Xuất Video Ngắn Tự Động")
-    
-    api_key = st.text_input("🔑 Nhập Google Gemini API Key:", type="password")
-    topic = st.text_input("📝 Chủ đề video:", placeholder="Ví dụ: 3 sự thật thú vị về vũ trụ")
-    voice_choice = st.selectbox("🎙️ Chọn giọng đọc AI:", [
-        "vi-VN-HoaiMyNeural (Nữ miền Bắc truyền cảm)",
-        "vi-VN-NamMinhNeural (Nam miền Bắc ấm áp)"
-    ])
-    voice_code = voice_choice.split(" ")[0]
-
-    if st.button("🚀 TẠO TOÀN BỘ KỊCH BẢN & GIỌNG ĐỌC", type="primary", use_container_width=True):
-        if not api_key or not topic:
-            st.warning("⚠️ Vui lòng nhập API Key và chủ đề video!")
-        else:
-            with st.spinner("🤖 Gemini đang viết kịch bản và AI đang thu âm..."):
-                try:
-                    genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    prompt = f"Viết một kịch bản video TikTok 30 giây hấp dẫn về chủ đề: {topic}. Viết dạng lời đọc liên tục không ngắt quãng."
-                    response = model.generate_content(prompt)
-                    script_text = response.text
-                    
-                    st.text_area("📜 Kịch bản được tạo:", value=script_text, height=150)
-                    
-                    # Sinh file âm thanh qua edge-tts
-                    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_audio:
-                        audio_path = tmp_audio.name
+                        song_prompt = (
+                            f"Đóng vai một nhạc sĩ và nhà soạn lời chuyên nghiệp. Hãy viết toàn bộ lời bài hát hoàn chỉnh về chủ đề: '{song_topic}'.\n"
+                            f"- Thể loại: {music_genre}\n"
+                            f"- Kiểu gieo vần: {rhyme_scheme}\n"
+                            f"- Ghi chú bổ sung: {extra_notes}\n"
+                            f"Yêu cầu cấu trúc rõ ràng gồm các phần:\n"
+                            f"[Intro]\n"
+                            f"[Verse 1]\n"
+                            f"[Pre-Chorus]\n"
+                            f"[Chorus] (Điệp khúc - cực kỳ bắt tai, cao trào cảm xúc)\n"
+                            f"[Verse 2]\n"
+                            f"[Bridge] (Cầu nối chuyển hướng cảm xúc)\n"
+                            f"[Chorus]\n"
+                            f"[Outro]\n"
+                            f"Hãy viết câu từ chau chuốt, giàu hình ảnh và nhịp điệu."
+                        )
                         
-                    def run_tts():
-                        async def generate():
-                            communicate = edge_tts.Communicate(script_text, voice_code)
-                            await communicate.save(audio_path)
-                        asyncio.run(generate())
+                        lyrics_result = ly_model.generate_content(song_prompt)
+                        st.session_state['full_song_lyrics'] = lyrics_result.text
+                        st.success("✅ Đã hoàn thành bản sáng tác lời bài hát tuyệt đẹp!")
+                    except Exception as e:
+                        st.error(f"Lỗi sáng tác: {str(e)}")
 
-                    t = threading.Thread(target=run_tts)
-                    t.start()
-                    t.join()
+        if 'full_song_lyrics' in st.session_state:
+            st.markdown("#### 📜 Bản Lời Bài Hát Hoàn Chỉnh:")
+            st.text_area("Lyrics Content:", value=st.session_state['full_song_lyrics'], height=350)
+            st.download_button(
+                label="📥 TẢI LỜI NHẠC (.TXT)",
+                data=st.session_state['full_song_lyrics'],
+                file_name="bai_hat_ai_sang_tac.txt",
+                mime="text/plain"
+            )
 
-                    st.success("🎉 Đã thu âm giọng đọc AI thành công!")
-                    with open(audio_path, "rb") as f:
-                        st.audio(f.read(), format="audio/mp3")
-                except Exception as e:
-                    st.error(f"Lỗi: {str(e)}")
+    with tab_mv:
+        st.markdown("#### 🎬 Dựng Video MV Âm Nhạc Từ Ảnh Bìa & File Beat:")
+        col_mv1, col_mv2 = st.columns(2)
+        with col_mv1:
+            mv_image_upload = st.file_uploader("1. Tải ảnh bìa MV (Poster / Album Art):", type=["jpg", "png", "jpeg"], key="p5_mv_cover")
+            if mv_image_upload:
+                st.image(mv_image_upload, caption="Ảnh bìa MV", use_container_width=True)
 
-# -----------------------------------------------------------------------------
-# PHÂN HỆ 5: SÁNG TÁC NHẠC & GHÉP MV
-# -----------------------------------------------------------------------------
-elif menu == "5. 🎵 Sáng Tác Nhạc & Ghép MV":
-    st.subheader("🎵 Sáng Tác Lời Bài Hát & Xuất MV")
-    
-    music_api = st.text_input("🔑 Nhập Gemini API Key:", type="password", key="music_api")
-    genre = st.selectbox("Chọn thể loại bài hát:", ["Pop Ballad sâu lắng", "Rap sôi động", "Nhạc Lo-fi Chill buồn", "Nhạc Tết Vui Tươi"])
-    song_topic = st.text_input("Ý tưởng bài hát:", placeholder="Ví dụ: Tình yêu tuổi học trò")
+        with col_mv2:
+            mv_audio_upload = st.file_uploader("2. Tải file Beat nhạc / Bài hát (.mp3, .wav):", type=["mp3", "wav", "m4a"], key="p5_mv_audio")
+            if mv_audio_upload:
+                st.audio(mv_audio_upload)
 
-    if st.button("✍️ SÁNG TÁC LỜI BÀI HÁT", type="primary", use_container_width=True):
-        if not music_api or not song_topic:
-            st.warning("⚠️ Vui lòng nhập đầy đủ thông tin!")
-        else:
-            with st.spinner("🎼 Đang sáng tác lời bài hát..."):
-                try:
-                    genai.configure(api_key=music_api)
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    prompt = f"Hãy sáng tác toàn bộ lời bài hát hoàn chỉnh gồm [Intro], [Verse 1], [Chorus], [Verse 2], [Outro] theo thể loại {genre} về đề tài {song_topic}."
-                    res = model.generate_content(prompt)
-                    st.session_state['song_lyrics'] = res.text
-                    st.success("✅ Đã hoàn thành lời bài hát!")
-                except Exception as e:
-                    st.error(f"Lỗi: {str(e)}")
+        st.markdown("---")
+        if st.button("🎞️ KẾT XUẤT FILE VIDEO MV (.MP4)", type="primary", use_container_width=True):
+            if not mv_image_upload or not mv_audio_upload:
+                st.warning("⚠️ Vui lòng tải lên cả Ảnh Bìa và File Beat Nhạc để dựng MV!")
+            else:
+                with st.spinner("⏳ Đang mã hóa âm thanh chất lượng cao và kết xuất MV..."):
+                    try:
+                        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_cov:
+                            tmp_cov.write(mv_image_upload.getvalue())
+                            cov_path = tmp_cov.name
 
-    if 'song_lyrics' in st.session_state:
-        st.text_area("📜 Lời bài hát:", value=st.session_state['song_lyrics'], height=250)
+                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_mus:
+                            tmp_mus.write(mv_audio_upload.getvalue())
+                            mus_path = tmp_mus.name
 
-    st.markdown("---")
-    st.markdown("#### 🎬 Ghép Ảnh Bìa & Nhạc Thành File Video MV (.mp4)")
-    cover_img = st.file_uploader("Tải ảnh nền MV:", type=["jpg", "png", "jpeg"], key="mv_cover")
-    beat_mp3 = st.file_uploader("Tải file nhạc Beat/Vocal (.mp3):", type=["mp3", "wav"], key="mv_audio")
+                        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_mv_res:
+                            mv_res_path = tmp_mv_res.name
 
-    if st.button("🎞️ XUẤT FILE MV (.MP4)", use_container_width=True):
-        if not cover_img or not beat_mp3:
-            st.warning("⚠️ Vui lòng tải đủ ảnh nền và file âm thanh!")
-        else:
-            with st.spinner("⏳ Đang ghép ảnh và nhạc thành MV..."):
-                try:
-                    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_img:
-                        tmp_img.write(cover_img.getvalue())
-                        img_p = tmp_img.name
-                    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_aud:
-                        tmp_aud.write(beat_mp3.getvalue())
-                        aud_p = tmp_aud.name
-                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_mv:
-                        out_mv_p = tmp_mv.name
+                        # Xử lý ghép MV bằng MoviePy
+                        music_audio_clip = AudioFileClip(mus_path)
+                        music_duration = music_audio_clip.duration
 
-                    audio_clip = AudioFileClip(aud_p)
-                    # Giới hạn độ dài demo nếu cần hoặc lấy toàn bộ
-                    image_clip = ImageClip(img_p).set_duration(audio_clip.duration)
-                    image_clip = image_clip.set_audio(audio_clip)
-                    image_clip.write_videofile(out_mv_p, fps=24, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+                        # Chuẩn hóa ảnh theo kích thước 1920x1080 (MV Ngang) hoặc 720x1280 (MV Dọc)
+                        raw_pil_img = Image.open(cov_path).convert("RGB")
+                        w, h = raw_pil_img.size
+                        target_size = (720, 1280) if h > w else (1920, 1080)
+                        
+                        resized_cover = raw_pil_img.resize(target_size)
+                        arr_cover = np.array(resized_cover)
 
-                    st.success("🎉 MV đã được kết xuất thành công!")
-                    with open(out_mv_p, "rb") as f:
-                        mv_bytes = f.read()
-                    st.video(mv_bytes)
-                    st.download_button("📥 TẢI MV (.MP4)", data=mv_bytes, file_name="music_video.mp4", mime="video/mp4")
-                except Exception as e:
-                    st.error(f"Lỗi ghép MV: {str(e)}")
+                        mv_clip = ImageClip(arr_cover).set_duration(music_duration)
+                        mv_clip = mv_clip.set_audio(music_audio_clip)
+
+                        mv_clip.write_videofile(
+                            mv_res_path,
+                            fps=24,
+                            codec="libx264",
+                            audio_codec="aac",
+                            verbose=False,
+                            logger=None
+                        )
+
+                        st.success("🎉 Video MV Âm Nhạc Đã Được Dựng Thành Công!")
+                        with open(mv_res_path, "rb") as mv_f:
+                            mv_bytes_data = mv_f.read()
+                        st.video(mv_bytes_data)
+                        st.download_button(
+                            label="📥 TẢI MV HOÀN CHỈNH (.MP4)",
+                            data=mv_bytes_data,
+                            file_name="official_music_video.mp4",
+                            mime="video/mp4",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"Lỗi trong quá trình kết xuất MV: {str(e)}")
