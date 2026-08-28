@@ -10,6 +10,13 @@ import threading
 import requests
 import numpy as np
 from PIL import Image
+import PIL.Image
+
+# --- PATCH LỖI PILLOW CHO MOVIEPY ---
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    PIL.Image.ANTIALIAS = PIL.Image.Resampling.LANCZOS
+# ------------------------------------
+
 import streamlit as st
 import google.generativeai as genai
 import edge_tts
